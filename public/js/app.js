@@ -399,6 +399,10 @@ function cancelDrawingCable() {
  * Memulai tarikan kabel baru langsung dari suatu titik/gedung
  */
 function startCableFromNode(nodeId) {
+    if (typeof hasWritePermission === 'function' && !hasWritePermission()) {
+        alert('Akses Ditolak: Hanya SUPER ADMIN yang dapat menarik jalur FO.');
+        return;
+    }
     const node = nodes.find(n => n.id === nodeId);
     if (!node) return;
 
@@ -434,6 +438,10 @@ function startCableFromNode(nodeId) {
  * Melanjutkan / menyambung tarikan jalur FO yang sudah ada dari titik ujungnya
  */
 function continueDrawingCable(cableId) {
+    if (typeof hasWritePermission === 'function' && !hasWritePermission()) {
+        alert('Akses Ditolak: Hanya SUPER ADMIN yang dapat menyambung atau mengedit jalur.');
+        return;
+    }
     const cable = cables.find(c => c.id === cableId);
     if (!cable || !cable.points || cable.points.length === 0) return;
 
@@ -611,24 +619,10 @@ function addNodeFromInput() {
     map.setView([lat, lng], 18);
 }
 
-function renderNodeMarker(node) {
-    if (nodeMarkers[node.id]) {
-        map.removeLayer(nodeMarkers[node.id]);
-        delete nodeMarkers[node.id];
-    }
-
+function getNodePopupHtml(node) {
+    if (!node) return '';
+    const canWrite = typeof hasWritePermission === 'function' ? hasWritePermission() : false;
     const style = nodeStyleMap[node.type] || nodeStyleMap['Closure'];
-    const icon = L.divIcon({
-        className: '',
-        html: `<div class="custom-marker" style="width:28px;height:28px;background:${style.bg};" title="${escapeHtml(node.name)}">
-                 <i class="fa-solid ${style.icon}"></i>
-               </div>`,
-        iconSize: [28, 28],
-        iconAnchor: [14, 14]
-    });
-
-    const canWrite = typeof hasWritePermission === 'function' ? hasWritePermission() : true;
-    const marker = L.marker([node.lat, node.lng], { icon, draggable: canWrite }).addTo(map);
 
     const descHtml = node.description ? `
         <div class="bg-slate-100 p-2 rounded-lg text-slate-700 text-[11px] leading-relaxed border border-slate-200">
@@ -664,7 +658,7 @@ function renderNodeMarker(node) {
         </div>
     `;
 
-    marker.bindPopup(`
+    return `
         <div class="text-slate-800 text-xs space-y-2 min-w-[210px] max-w-[280px]">
             <div class="flex items-center justify-between border-b pb-1.5">
                 <span class="font-bold text-sm text-slate-900">${escapeHtml(node.name)}</span>
@@ -678,7 +672,32 @@ function renderNodeMarker(node) {
             ${photoHtml}
             ${actionSectionHtml}
         </div>
-    `);
+    `;
+}
+
+function renderNodeMarker(node) {
+    if (nodeMarkers[node.id]) {
+        map.removeLayer(nodeMarkers[node.id]);
+        delete nodeMarkers[node.id];
+    }
+
+    const style = nodeStyleMap[node.type] || nodeStyleMap['Closure'];
+    const icon = L.divIcon({
+        className: '',
+        html: `<div class="custom-marker" style="width:28px;height:28px;background:${style.bg};" title="${escapeHtml(node.name)}">
+                 <i class="fa-solid ${style.icon}"></i>
+               </div>`,
+        iconSize: [28, 28],
+        iconAnchor: [14, 14]
+    });
+
+    const canWrite = typeof hasWritePermission === 'function' ? hasWritePermission() : false;
+    const marker = L.marker([node.lat, node.lng], { icon, draggable: canWrite }).addTo(map);
+
+    // Dynamic Leaflet Popup: Callback dievaluasi setiap kali marker diklik agar role selalu akurat
+    marker.bindPopup(function() {
+        return getNodePopupHtml(node);
+    });
 
     // Klik marker
     marker.on('click', function(e) {
@@ -930,6 +949,16 @@ function renderCablePolyline(cable) {
         deleteCable(cable.id);
     });
 
+    poly.bindPopup(function() {
+        return getCablePopupHtml(cable);
+    });
+
+    cablePolylines[cable.id] = poly;
+}
+
+function getCablePopupHtml(cable) {
+    if (!cable) return '';
+    const canWrite = typeof hasWritePermission === 'function' ? hasWritePermission() : false;
     const descHtml = cable.description ? `
         <div class="bg-slate-100 p-2 rounded-lg text-slate-700 text-[11px] leading-relaxed border border-slate-200">
             <b>Deskripsi:</b><br>${escapeHtml(cable.description).replace(/\n/g, '<br>')}
@@ -938,7 +967,6 @@ function renderCablePolyline(cable) {
 
     const photoHtml = renderPhotoThumbnails(cable.photos, cable.name);
 
-    const canWrite = typeof hasWritePermission === 'function' ? hasWritePermission() : true;
     const cableActionHtml = canWrite ? `
         <div class="pt-2 border-t border-slate-200 space-y-1.5">
             <button onclick="continueDrawingCable('${cable.id}')" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-center gap-1.5 shadow transition">
@@ -981,7 +1009,7 @@ function renderCablePolyline(cable) {
         </div>
     `;
 
-    poly.bindPopup(`
+    return `
         <div class="text-slate-800 text-xs space-y-2 min-w-[230px] max-w-[300px]">
             <div class="flex items-center justify-between border-b pb-1.5">
                 <span class="font-bold text-sm text-slate-900">${escapeHtml(cable.name)}</span>
@@ -1008,9 +1036,7 @@ function renderCablePolyline(cable) {
             
             ${cableActionHtml}
         </div>
-    `);
-
-    cablePolylines[cable.id] = poly;
+    `;
 }
 
 function deleteCable(id, confirmAsk = true) {
@@ -1300,6 +1326,8 @@ function closeEditModal() {
 
 // --- 7. RENDER UI & PENYIMPANAN LOKAL ---
 function saveAndRefresh() {
+    window.nodes = nodes;
+    window.cables = cables;
     if (typeof hasWritePermission === 'function' && !hasWritePermission()) {
         console.warn('Akses ditolak: User read-only tidak diizinkan mengubah data.');
         updateUI();
@@ -1323,6 +1351,7 @@ function saveAndRefresh() {
 }
 
 function updateUI() {
+    const canWrite = typeof hasWritePermission === 'function' ? hasWritePermission() : false;
     document.getElementById('count-badge').innerText = nodes.length + cables.length;
     document.getElementById('stat-nodes').innerText = nodes.length;
 
@@ -1387,7 +1416,6 @@ function updateUI() {
                     const isCollapsed = !!collapsedNodeGroups[t];
                     const chevronRotate = isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)';
 
-                    const canWrite = typeof hasWritePermission === 'function' ? hasWritePermission() : true;
                     const itemsHtml = groupItems.map(n => `
                         <div class="bg-slate-900/90 p-2.5 rounded-lg border border-slate-700/80 space-y-1.5 hover:border-slate-600 transition">
                             <div class="flex items-center justify-between">
@@ -1809,22 +1837,34 @@ function clearAllData(confirmAsk = true) {
 
 // Load saved data on startup
 (function init() {
+    window.nodes = nodes;
+    window.cables = cables;
+    window.nodeMarkers = nodeMarkers;
+    window.cablePolylines = cablePolylines;
+    window.renderNodeMarker = renderNodeMarker;
+    window.renderCablePolyline = renderCablePolyline;
+    window.getNodePopupHtml = getNodePopupHtml;
+    window.getCablePopupHtml = getCablePopupHtml;
+    window.updateUI = updateUI;
+
+    // Inisialisasi Auth & terapkan hak akses UI sebelum render data awal
+    if (typeof initAuth === 'function') {
+        initAuth();
+    }
+
     const saved = localStorage.getItem('fo_mapper_data');
     if (saved) {
         try {
             const parsed = JSON.parse(saved);
             nodes = parsed.nodes || [];
             cables = parsed.cables || [];
+            window.nodes = nodes;
+            window.cables = cables;
             nodes.forEach(renderNodeMarker);
             cables.forEach(renderCablePolyline);
             updateUI();
             if (nodes.length > 0) map.setView([nodes[0].lat, nodes[0].lng], 15);
         } catch (e) {}
-    }
-
-    // Inisialisasi Auth & terapkan hak akses UI
-    if (typeof initAuth === 'function') {
-        initAuth();
     }
 
     // Sinkronisasi data dari server jika data lokal masih kosong
@@ -1835,6 +1875,8 @@ function clearAllData(confirmAsk = true) {
                 if (!saved || (nodes.length === 0 && cables.length === 0)) {
                     nodes = data.nodes || [];
                     cables = data.cables || [];
+                    window.nodes = nodes;
+                    window.cables = cables;
                     nodes.forEach(renderNodeMarker);
                     cables.forEach(renderCablePolyline);
                     localStorage.setItem('fo_mapper_data', JSON.stringify({ nodes, cables }));

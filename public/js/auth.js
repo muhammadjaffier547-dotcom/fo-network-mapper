@@ -105,23 +105,55 @@ async function initAuth() {
     }
 }
 
+function getCurrentUser() {
+    try {
+        const s = sessionStorage.getItem('fo_auth_user');
+        if (s) {
+            const parsed = JSON.parse(s);
+            if (parsed && parsed.role) {
+                currentAuthUser = parsed;
+                if (typeof window !== 'undefined') window.currentAuthUser = currentAuthUser;
+                return currentAuthUser;
+            }
+        }
+    } catch (e) {}
+    if (typeof window !== 'undefined' && window.currentAuthUser) {
+        currentAuthUser = window.currentAuthUser;
+        return currentAuthUser;
+    }
+    if (currentAuthUser) return currentAuthUser;
+    return null;
+}
+
 /**
  * Cek apakah user memiliki hak akses menulis / edit data
  */
 function hasWritePermission() {
-    return currentAuthUser && currentAuthUser.role === 'SUPER_ADMIN';
+    const user = getCurrentUser();
+    return !!(user && (user.role === 'SUPER_ADMIN' || user.role === 'admin'));
 }
 
 function isSuperAdmin() {
-    return currentAuthUser && currentAuthUser.role === 'SUPER_ADMIN';
+    const user = getCurrentUser();
+    return !!(user && (user.role === 'SUPER_ADMIN' || user.role === 'admin'));
 }
 
 function isUserRole() {
-    return currentAuthUser && currentAuthUser.role === 'USER';
+    const user = getCurrentUser();
+    return !!(user && (user.role === 'USER' || user.role === 'user'));
 }
 
 function isGuest() {
-    return !currentAuthUser || currentAuthUser.role === 'GUEST';
+    const user = getCurrentUser();
+    return !user || user.role === 'GUEST';
+}
+
+if (typeof window !== 'undefined') {
+    window.getCurrentUser = getCurrentUser;
+    window.hasWritePermission = hasWritePermission;
+    window.isSuperAdmin = isSuperAdmin;
+    window.isUserRole = isUserRole;
+    window.isGuest = isGuest;
 }
 
 /**
@@ -279,6 +311,10 @@ async function executeLogout() {
  * Terapkan hak akses dan perapian UI berdasarkan Role
  */
 function applyRoleUI() {
+    if (typeof window !== 'undefined') {
+        window.currentAuthUser = currentAuthUser;
+        window.currentAuthToken = currentAuthToken;
+    }
     const role = currentAuthUser ? currentAuthUser.role : 'GUEST';
     const isSuper = role === 'SUPER_ADMIN';
     const isUser = role === 'USER';
@@ -401,15 +437,51 @@ function applyRoleUI() {
  * Refresh semua marker titik dan garis jalur FO di peta berdasarkan hak akses role
  */
 function refreshAllMarkersForRole() {
-    if (typeof nodes !== 'undefined' && Array.isArray(nodes)) {
-        nodes.forEach(n => {
-            if (typeof renderNodeMarker === 'function') renderNodeMarker(n);
-        });
-    }
-    if (typeof cables !== 'undefined' && Array.isArray(cables)) {
-        cables.forEach(c => {
-            if (typeof renderCablePolyline === 'function') renderCablePolyline(c);
-        });
+    const canWrite = typeof hasWritePermission === 'function' ? hasWritePermission() : false;
+    const nList = (typeof nodes !== 'undefined' && Array.isArray(nodes)) ? nodes : (window.nodes || []);
+    const cList = (typeof cables !== 'undefined' && Array.isArray(cables)) ? cables : (window.cables || []);
+
+    const marks = window.nodeMarkers || (typeof nodeMarkers !== 'undefined' ? nodeMarkers : {});
+    Object.values(marks).forEach(m => {
+        if (m && m.dragging) {
+            if (canWrite) m.dragging.enable();
+            else m.dragging.disable();
+        }
+    });
+
+    nList.forEach(n => {
+        if (typeof renderNodeMarker === 'function') renderNodeMarker(n);
+        else if (typeof window.renderNodeMarker === 'function') window.renderNodeMarker(n);
+    });
+    cList.forEach(c => {
+        if (typeof renderCablePolyline === 'function') renderCablePolyline(c);
+        else if (typeof window.renderCablePolyline === 'function') window.renderCablePolyline(c);
+    });
+
+    // Jika ada popup yang sedang terbuka di peta, perbarui kontennya langsung
+    if (typeof map !== 'undefined' && map && map._popup && map._popup.isOpen()) {
+        const sourceLayer = map._popup._source;
+        if (sourceLayer) {
+            const cPolys = window.cablePolylines || (typeof cablePolylines !== 'undefined' ? cablePolylines : {});
+            const cEntry = Object.entries(cPolys).find(([id, poly]) => poly === sourceLayer);
+            if (cEntry) {
+                const cObj = cList.find(c => c.id === cEntry[0]);
+                if (cObj && typeof getCablePopupHtml === 'function') {
+                    map._popup.setContent(getCablePopupHtml(cObj));
+                } else if (cObj && typeof window.getCablePopupHtml === 'function') {
+                    map._popup.setContent(window.getCablePopupHtml(cObj));
+                }
+            }
+            const nEntry = Object.entries(marks).find(([id, marker]) => marker === sourceLayer);
+            if (nEntry) {
+                const nObj = nList.find(n => n.id === nEntry[0]);
+                if (nObj && typeof getNodePopupHtml === 'function') {
+                    map._popup.setContent(getNodePopupHtml(nObj));
+                } else if (nObj && typeof window.getNodePopupHtml === 'function') {
+                    map._popup.setContent(window.getNodePopupHtml(nObj));
+                }
+            }
+        }
     }
 }
 
