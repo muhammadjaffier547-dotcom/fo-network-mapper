@@ -12,6 +12,10 @@ let cableMidpointHandles = [];
  * Mulai mode edit titik / rute untuk jalur kabel tertentu
  */
 function startEditingCableRoute(cableId) {
+    if (typeof hasWritePermission === 'function' && !hasWritePermission()) {
+        alert('Akses Ditolak: Hanya SUPER ADMIN yang dapat merelokasi titik rute kabel.');
+        return;
+    }
     const cable = cables.find(c => c.id === cableId);
     if (!cable) return;
 

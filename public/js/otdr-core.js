@@ -266,6 +266,21 @@ function openCoreMatrixModal(cableId) {
         });
     }
 
+    // Role-based visibility tombol simpan core & input disable
+    const btnSaveCore = document.querySelector('#modal-core-matrix button[onclick="saveCoreMatrixData()"]');
+    const isWrite = typeof hasWritePermission === 'function' ? hasWritePermission() : true;
+    if (btnSaveCore) {
+        if (!isWrite) {
+            btnSaveCore.classList.add('hidden');
+        } else {
+            btnSaveCore.classList.remove('hidden');
+        }
+    }
+    if (!isWrite) {
+        modal.querySelectorAll('.core-target-input').forEach(el => el.disabled = true);
+        modal.querySelectorAll('.core-status-select').forEach(el => el.disabled = true);
+    }
+
     modal.classList.remove('hidden');
 }
 
@@ -275,6 +290,10 @@ function closeCoreMatrixModal() {
 }
 
 function saveCoreMatrixData() {
+    if (typeof hasWritePermission === 'function' && !hasWritePermission()) {
+        alert('Akses Ditolak: Hanya SUPER ADMIN yang dapat mengubah data core kabel.');
+        return;
+    }
     const cableId = document.getElementById('core-matrix-cable-id').value;
     const cable = cables.find(c => c.id === cableId);
     if (!cable) return;

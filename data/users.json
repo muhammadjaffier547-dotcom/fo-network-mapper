@@ -1,0 +1,20 @@
+[
+  {
+    "id": "usr_superadmin_01",
+    "username": "admin",
+    "password": "admin123",
+    "name": "Super Admin",
+    "role": "SUPER_ADMIN",
+    "avatar": "fa-user-shield",
+    "createdAt": "2026-10-14T09:14:47.344Z"
+  },
+  {
+    "id": "usr_teknisi_01",
+    "username": "teknisi",
+    "password": "teknisi123",
+    "name": "Teknisi Lapangan",
+    "role": "USER",
+    "avatar": "fa-hard-hat",
+    "createdAt": "2026-10-14T09:14:47.349Z"
+  }
+]

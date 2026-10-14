@@ -184,6 +184,11 @@ function compressImage(file, maxWidth = 900, quality = 0.75) {
 }
 
 async function handleNodePhotoUpload(event) {
+    if (typeof hasWritePermission === 'function' && !hasWritePermission()) {
+        alert('Akses Ditolak: Hanya SUPER ADMIN yang dapat mengunggah foto dokumentasi.');
+        event.target.value = '';
+        return;
+    }
     const files = Array.from(event.target.files);
     for (const f of files) {
         if (!f.type.startsWith('image/')) continue;
@@ -230,6 +235,11 @@ function removePendingNodePhoto(idx) {
 }
 
 async function handleCablePhotoUpload(event) {
+    if (typeof hasWritePermission === 'function' && !hasWritePermission()) {
+        alert('Akses Ditolak: Hanya SUPER ADMIN yang dapat mengunggah foto dokumentasi.');
+        event.target.value = '';
+        return;
+    }
     const files = Array.from(event.target.files);
     for (const f of files) {
         if (!f.type.startsWith('image/')) continue;
@@ -552,6 +562,10 @@ map.on('click', function(e) {
 
 // --- 4. MANAJEMEN TITIK (CLOSURE / ODP / DLL) ---
 function createNode(lat, lng, customName = null, customType = null, customNote = null, customDesc = null, customPhotos = null) {
+    if (typeof hasWritePermission === 'function' && !hasWritePermission()) {
+        alert('Akses Ditolak: Hanya SUPER ADMIN yang dapat menambah titik.');
+        return;
+    }
     const type = customType || document.getElementById('node-type').value;
     const autoNumber = nodes.filter(n => n.type === type).length + 1;
     const nameInput = document.getElementById('node-name').value.trim();
@@ -613,7 +627,8 @@ function renderNodeMarker(node) {
         iconAnchor: [14, 14]
     });
 
-    const marker = L.marker([node.lat, node.lng], { icon, draggable: true }).addTo(map);
+    const canWrite = typeof hasWritePermission === 'function' ? hasWritePermission() : true;
+    const marker = L.marker([node.lat, node.lng], { icon, draggable: canWrite }).addTo(map);
 
     const descHtml = node.description ? `
         <div class="bg-slate-100 p-2 rounded-lg text-slate-700 text-[11px] leading-relaxed border border-slate-200">
@@ -622,6 +637,32 @@ function renderNodeMarker(node) {
     ` : '';
 
     const photoHtml = renderPhotoThumbnails(node.photos, node.name);
+
+    const actionSectionHtml = canWrite ? `
+        <div class="pt-1.5 border-t border-slate-200 flex flex-col gap-1.5">
+            <button onclick="startCableFromNode('${node.id}')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 px-2 rounded-lg text-xs flex items-center justify-center gap-1.5 shadow transition">
+                <i class="fa-solid fa-route"></i> + Tarik Jalur FO dari Titik Ini
+            </button>
+            <div class="flex items-center justify-between gap-1 pt-1 border-t border-slate-100">
+                <button onclick="openEditNodeModal('${node.id}')" class="text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-1">
+                    <i class="fa-solid fa-pen-to-square"></i> Edit
+                </button>
+                <a href="https://www.google.com/maps?q=${node.lat},${node.lng}" target="_blank" class="text-emerald-600 hover:text-emerald-700 font-semibold flex items-center gap-1">
+                    <i class="fa-solid fa-arrow-up-right-from-square"></i> G-Maps
+                </a>
+                <button onclick="deleteNode('${node.id}')" class="text-red-600 hover:text-red-700 font-semibold flex items-center gap-1">
+                    <i class="fa-solid fa-trash"></i> Hapus
+                </button>
+            </div>
+        </div>
+    ` : `
+        <div class="pt-1.5 border-t border-slate-200 flex items-center justify-between">
+            <span class="text-[10px] text-slate-500 italic flex items-center gap-1"><i class="fa-solid fa-lock"></i> Read-Only</span>
+            <a href="https://www.google.com/maps?q=${node.lat},${node.lng}" target="_blank" class="text-emerald-600 hover:text-emerald-700 font-semibold flex items-center gap-1 text-xs">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i> Buka Google Maps
+            </a>
+        </div>
+    `;
 
     marker.bindPopup(`
         <div class="text-slate-800 text-xs space-y-2 min-w-[210px] max-w-[280px]">
@@ -635,43 +676,32 @@ function renderNodeMarker(node) {
             </div>
             ${descHtml}
             ${photoHtml}
-            <div class="pt-1.5 border-t border-slate-200 flex flex-col gap-1.5">
-                <button onclick="startCableFromNode('${node.id}')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 px-2 rounded-lg text-xs flex items-center justify-center gap-1.5 shadow transition">
-                    <i class="fa-solid fa-route"></i> + Tarik Jalur FO dari Titik Ini
-                </button>
-                <div class="flex items-center justify-between gap-1 pt-1 border-t border-slate-100">
-                    <button onclick="openEditNodeModal('${node.id}')" class="text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-1">
-                        <i class="fa-solid fa-pen-to-square"></i> Edit
-                    </button>
-                    <a href="https://www.google.com/maps?q=${node.lat},${node.lng}" target="_blank" class="text-emerald-600 hover:text-emerald-700 font-semibold flex items-center gap-1">
-                        <i class="fa-solid fa-arrow-up-right-from-square"></i> G-Maps
-                    </a>
-                    <button onclick="deleteNode('${node.id}')" class="text-red-600 hover:text-red-700 font-semibold flex items-center gap-1">
-                        <i class="fa-solid fa-trash"></i> Hapus
-                    </button>
-                </div>
-            </div>
+            ${actionSectionHtml}
         </div>
     `);
 
     // Klik marker
     marker.on('click', function(e) {
         if (currentMode === 'delete') {
+            if (typeof hasWritePermission === 'function' && !hasWritePermission()) return;
             L.DomEvent.stopPropagation(e);
             deleteNode(node.id);
         } else if (currentMode === 'cable') {
+            if (typeof hasWritePermission === 'function' && !hasWritePermission()) return;
             L.DomEvent.stopPropagation(e);
             handleNodeClickInCableMode(node);
         }
     });
 
-    // Klik kanan langsung hapus titik
+    // Klik kanan langsung hapus titik (hanya Super Admin)
     marker.on('contextmenu', function(e) {
+        if (typeof hasWritePermission === 'function' && !hasWritePermission()) return;
         L.DomEvent.stopPropagation(e);
         deleteNode(node.id);
     });
 
     marker.on('dragend', function(e) {
+        if (typeof hasWritePermission === 'function' && !hasWritePermission()) return;
         const pos = e.target.getLatLng();
         node.lat = pos.lat;
         node.lng = pos.lng;
@@ -682,6 +712,10 @@ function renderNodeMarker(node) {
 }
 
 function deleteNode(id, confirmAsk = true) {
+    if (typeof hasWritePermission === 'function' && !hasWritePermission()) {
+        alert('Akses Ditolak: Hanya SUPER ADMIN yang dapat menghapus titik.');
+        return;
+    }
     const node = nodes.find(n => n.id === id);
     if (!node) return;
     if (confirmAsk && !confirm(`Yakin ingin menghapus titik "${node.name}" (${node.type})?`)) {
@@ -728,6 +762,12 @@ function addPointToActiveCable(latOrPt, maybeLng) {
 }
 
 function finishDrawingCable() {
+    if (typeof hasWritePermission === 'function' && !hasWritePermission()) {
+        alert('Akses Ditolak: Hanya SUPER ADMIN yang dapat membuat atau mengedit rute kabel.');
+        resetTempCable();
+        return;
+    }
+
     if (activeCablePoints.length < 2) {
         resetTempCable();
         return;
@@ -874,16 +914,18 @@ function renderCablePolyline(cable) {
         if (!editingCableId) this.setStyle({ weight: 6, opacity: 0.95 });
     });
 
-    // Klik jalur untuk hapus jika dalam mode delete
+    // Klik jalur untuk hapus jika dalam mode delete (hanya Super Admin)
     poly.on('click', function(e) {
         if (currentMode === 'delete') {
+            if (typeof hasWritePermission === 'function' && !hasWritePermission()) return;
             L.DomEvent.stopPropagation(e);
             deleteCable(cable.id);
         }
     });
 
-    // Klik kanan langsung konfirmasi hapus jalur
+    // Klik kanan langsung konfirmasi hapus jalur (hanya Super Admin)
     poly.on('contextmenu', function(e) {
+        if (typeof hasWritePermission === 'function' && !hasWritePermission()) return;
         L.DomEvent.stopPropagation(e);
         deleteCable(cable.id);
     });
@@ -895,6 +937,49 @@ function renderCablePolyline(cable) {
     ` : '';
 
     const photoHtml = renderPhotoThumbnails(cable.photos, cable.name);
+
+    const canWrite = typeof hasWritePermission === 'function' ? hasWritePermission() : true;
+    const cableActionHtml = canWrite ? `
+        <div class="pt-2 border-t border-slate-200 space-y-1.5">
+            <button onclick="continueDrawingCable('${cable.id}')" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-center gap-1.5 shadow transition">
+                <i class="fa-solid fa-plus-circle"></i> Sambung / Lanjutkan Jalur Ini
+            </button>
+            <button onclick="startEditingCableRoute('${cable.id}')" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-center gap-1.5 shadow transition">
+                <i class="fa-solid fa-bezier-curve"></i> Edit Titik & Relokasi Rute
+            </button>
+            <div class="grid grid-cols-2 gap-1.5">
+                <button onclick="openOtdrModal('${cable.id}')" title="Pencari titik kabel putus (OTDR)" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 py-1.5 px-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1 shadow-sm">
+                    <i class="fa-solid fa-triangle-exclamation"></i> OTDR Fault
+                </button>
+                <button onclick="openCoreMatrixModal('${cable.id}')" title="Manajemen Tube & 12 Warna Core" class="bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 py-1.5 px-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1 shadow-sm">
+                    <i class="fa-solid fa-palette"></i> 12 Core TIA
+                </button>
+            </div>
+            <div class="flex items-center justify-between gap-1 pt-1 border-t border-slate-100">
+                <button onclick="openEditCableModal('${cable.id}')" class="text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-1 text-xs">
+                    <i class="fa-solid fa-pen-to-square"></i> Edit Info
+                </button>
+                <button onclick="deleteCable('${cable.id}')" class="text-red-600 hover:text-red-700 font-semibold flex items-center gap-1 text-xs">
+                    <i class="fa-solid fa-trash"></i> Hapus Jalur
+                </button>
+            </div>
+        </div>
+    ` : `
+        <div class="pt-2 border-t border-slate-200 space-y-1.5">
+            <div class="grid grid-cols-2 gap-1.5">
+                <button onclick="openOtdrModal('${cable.id}')" title="Pencari titik kabel putus (OTDR)" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 py-1.5 px-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1 shadow-sm">
+                    <i class="fa-solid fa-triangle-exclamation"></i> OTDR Fault
+                </button>
+                <button onclick="openCoreMatrixModal('${cable.id}')" title="Manajemen Tube & 12 Warna Core" class="bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 py-1.5 px-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1 shadow-sm">
+                    <i class="fa-solid fa-palette"></i> 12 Core TIA
+                </button>
+            </div>
+            <div class="flex items-center justify-between pt-1 border-t border-slate-100 text-[10px] text-slate-500">
+                <span><i class="fa-solid fa-lock mr-0.5"></i> Read-Only Mode</span>
+                <span class="text-emerald-600 font-semibold"><i class="fa-solid fa-circle-check mr-0.5"></i> Monitoring Aktif</span>
+            </div>
+        </div>
+    `;
 
     poly.bindPopup(`
         <div class="text-slate-800 text-xs space-y-2 min-w-[230px] max-w-[300px]">
@@ -921,31 +1006,7 @@ function renderCablePolyline(cable) {
             ${descHtml}
             ${photoHtml}
             
-            <!-- Tombol Aksi Lengkap -->
-            <div class="pt-2 border-t border-slate-200 space-y-1.5">
-                <button onclick="continueDrawingCable('${cable.id}')" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-center gap-1.5 shadow transition">
-                    <i class="fa-solid fa-plus-circle"></i> Sambung / Lanjutkan Jalur Ini
-                </button>
-                <button onclick="startEditingCableRoute('${cable.id}')" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-center gap-1.5 shadow transition">
-                    <i class="fa-solid fa-bezier-curve"></i> Edit Titik & Relokasi Rute
-                </button>
-                <div class="grid grid-cols-2 gap-1.5">
-                    <button onclick="openOtdrModal('${cable.id}')" title="Pencari titik kabel putus (OTDR)" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 py-1.5 px-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1 shadow-sm">
-                        <i class="fa-solid fa-triangle-exclamation"></i> OTDR Fault
-                    </button>
-                    <button onclick="openCoreMatrixModal('${cable.id}')" title="Manajemen Tube & 12 Warna Core" class="bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 py-1.5 px-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1 shadow-sm">
-                        <i class="fa-solid fa-palette"></i> 12 Core TIA
-                    </button>
-                </div>
-                <div class="flex items-center justify-between gap-1 pt-1 border-t border-slate-100">
-                    <button onclick="openEditCableModal('${cable.id}')" class="text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-1 text-xs">
-                        <i class="fa-solid fa-pen-to-square"></i> Edit Info
-                    </button>
-                    <button onclick="deleteCable('${cable.id}')" class="text-red-600 hover:text-red-700 font-semibold flex items-center gap-1 text-xs">
-                        <i class="fa-solid fa-trash"></i> Hapus Jalur
-                    </button>
-                </div>
-            </div>
+            ${cableActionHtml}
         </div>
     `);
 
@@ -953,6 +1014,10 @@ function renderCablePolyline(cable) {
 }
 
 function deleteCable(id, confirmAsk = true) {
+    if (typeof hasWritePermission === 'function' && !hasWritePermission()) {
+        alert('Akses Ditolak: Hanya SUPER ADMIN yang dapat menghapus jalur kabel.');
+        return;
+    }
     const cable = cables.find(c => c.id === id);
     if (!cable) return;
     if (confirmAsk && !confirm(`Yakin ingin menghapus jalur kabel FO "${cable.name}" (${cable.coreSpec}, ${cable.totalDistance}m)?`)) {
@@ -970,6 +1035,10 @@ function deleteCable(id, confirmAsk = true) {
 }
 
 function connectAllClosures() {
+    if (typeof hasWritePermission === 'function' && !hasWritePermission()) {
+        alert('Akses Ditolak: Hanya SUPER ADMIN yang dapat menghubungkan titik.');
+        return;
+    }
     if (nodes.length < 2) {
         alert('Tambahkan minimal 2 titik terlebih dahulu untuk dihubungkan otomatis.');
         return;
@@ -980,6 +1049,10 @@ function connectAllClosures() {
 
 // --- 6. MODAL EDIT DATA (TITIK & KABEL) ---
 function openEditNodeModal(id) {
+    if (typeof hasWritePermission === 'function' && !hasWritePermission()) {
+        alert('Akses Ditolak: Hanya SUPER ADMIN yang dapat mengedit data titik.');
+        return;
+    }
     const node = nodes.find(n => n.id === id);
     if (!node) return;
 
@@ -1039,6 +1112,10 @@ function openEditNodeModal(id) {
 }
 
 function openEditCableModal(id) {
+    if (typeof hasWritePermission === 'function' && !hasWritePermission()) {
+        alert('Akses Ditolak: Hanya SUPER ADMIN yang dapat mengedit data jalur kabel.');
+        return;
+    }
     const cable = cables.find(c => c.id === id);
     if (!cable) return;
 
@@ -1128,6 +1205,11 @@ function openEditCableModal(id) {
 }
 
 async function handleEditPhotoUpload(event) {
+    if (typeof hasWritePermission === 'function' && !hasWritePermission()) {
+        alert('Akses Ditolak: Hanya SUPER ADMIN yang dapat mengunggah foto.');
+        event.target.value = '';
+        return;
+    }
     const files = Array.from(event.target.files);
     for (const f of files) {
         if (!f.type.startsWith('image/')) continue;
@@ -1163,11 +1245,20 @@ function renderEditPhotos() {
 }
 
 function removeEditPhoto(idx) {
+    if (typeof hasWritePermission === 'function' && !hasWritePermission()) {
+        alert('Akses Ditolak: Hanya SUPER ADMIN yang dapat menghapus foto.');
+        return;
+    }
     editingPhotos.splice(idx, 1);
     renderEditPhotos();
 }
 
 function saveEditData() {
+    if (typeof hasWritePermission === 'function' && !hasWritePermission()) {
+        alert('Akses Ditolak: Hanya SUPER ADMIN yang dapat menyimpan perubahan data.');
+        closeEditModal();
+        return;
+    }
     if (currentEditingType === 'node') {
         const node = nodes.find(n => n.id === currentEditingId);
         if (node) {
@@ -1209,8 +1300,26 @@ function closeEditModal() {
 
 // --- 7. RENDER UI & PENYIMPANAN LOKAL ---
 function saveAndRefresh() {
+    if (typeof hasWritePermission === 'function' && !hasWritePermission()) {
+        console.warn('Akses ditolak: User read-only tidak diizinkan mengubah data.');
+        updateUI();
+        return;
+    }
     localStorage.setItem('fo_mapper_data', JSON.stringify({ nodes, cables }));
     updateUI();
+
+    // Auto-sync ke server jika online (divalidasi di sisi server)
+    if (typeof currentAuthToken !== 'undefined' && currentAuthToken) {
+        fetch('/api/projects', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${currentAuthToken}`,
+                'x-auth-token': currentAuthToken
+            },
+            body: JSON.stringify({ nodes, cables })
+        }).catch(() => {});
+    }
 }
 
 function updateUI() {
@@ -1278,6 +1387,7 @@ function updateUI() {
                     const isCollapsed = !!collapsedNodeGroups[t];
                     const chevronRotate = isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)';
 
+                    const canWrite = typeof hasWritePermission === 'function' ? hasWritePermission() : true;
                     const itemsHtml = groupItems.map(n => `
                         <div class="bg-slate-900/90 p-2.5 rounded-lg border border-slate-700/80 space-y-1.5 hover:border-slate-600 transition">
                             <div class="flex items-center justify-between">
@@ -1286,10 +1396,14 @@ function updateUI() {
                                     <span class="text-xs truncate">${escapeHtml(n.name)}</span>
                                 </div>
                                 <div class="flex items-center gap-1 flex-shrink-0">
-                                    <button onclick="startCableFromNode('${n.id}')" title="Tarik Jalur FO dari titik ini" class="text-emerald-400 hover:text-emerald-300 p-1"><i class="fa-solid fa-route"></i></button>
-                                    <button onclick="openEditNodeModal('${n.id}')" title="Edit Deskripsi & Foto" class="text-amber-400 hover:text-amber-300 p-1"><i class="fa-solid fa-pen-to-square"></i></button>
+                                    ${canWrite ? `
+                                        <button onclick="startCableFromNode('${n.id}')" title="Tarik Jalur FO dari titik ini" class="text-emerald-400 hover:text-emerald-300 p-1"><i class="fa-solid fa-route"></i></button>
+                                        <button onclick="openEditNodeModal('${n.id}')" title="Edit Deskripsi & Foto" class="text-amber-400 hover:text-amber-300 p-1"><i class="fa-solid fa-pen-to-square"></i></button>
+                                    ` : ''}
                                     <button onclick="map.setView([${n.lat}, ${n.lng}], 19)" title="Pusatkan Peta" class="text-blue-400 hover:text-blue-300 p-1"><i class="fa-solid fa-crosshairs"></i></button>
-                                    <button onclick="deleteNode('${n.id}')" title="Hapus" class="text-red-400 hover:text-red-300 p-1"><i class="fa-solid fa-trash"></i></button>
+                                    ${canWrite ? `
+                                        <button onclick="deleteNode('${n.id}')" title="Hapus" class="text-red-400 hover:text-red-300 p-1"><i class="fa-solid fa-trash"></i></button>
+                                    ` : ''}
                                 </div>
                             </div>
                             <div class="text-[11px] text-slate-400 flex items-center justify-between">
@@ -1381,9 +1495,11 @@ function updateUI() {
                                             <span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-semibold truncate max-w-[100px]" title="${escapeHtml(c.powerSource || 'Power')}">
                                                 ⚡ ${escapeHtml(c.powerSource || 'Power')}
                                             </span>
-                                            <button onclick="continueDrawingCable('${c.id}')" title="Sambung / Teruskan Jalur Ini" class="text-emerald-400 hover:text-emerald-300 px-1">
-                                                <i class="fa-solid fa-plus-circle text-[10px]"></i>
-                                            </button>
+                                            ${canWrite ? `
+                                                <button onclick="continueDrawingCable('${c.id}')" title="Sambung / Teruskan Jalur Ini" class="text-emerald-400 hover:text-emerald-300 px-1">
+                                                    <i class="fa-solid fa-plus-circle text-[10px]"></i>
+                                                </button>
+                                            ` : ''}
                                             <button onclick="map.fitBounds(cablePolylines['${c.id}'].getBounds())" title="Lihat di Peta" class="text-blue-400 hover:text-blue-300 px-1">
                                                 <i class="fa-solid fa-eye text-[10px]"></i>
                                             </button>
@@ -1445,13 +1561,19 @@ function updateUI() {
                                     <span class="truncate text-xs">${escapeHtml(c.name)}</span>
                                 </div>
                                 <div class="flex items-center gap-1 flex-shrink-0">
-                                    <button onclick="continueDrawingCable('${c.id}')" title="Sambung / Lanjutkan Tarikan Jalur" class="text-emerald-400 hover:text-emerald-300 p-1"><i class="fa-solid fa-plus-circle"></i></button>
+                                    ${canWrite ? `
+                                        <button onclick="continueDrawingCable('${c.id}')" title="Sambung / Lanjutkan Tarikan Jalur" class="text-emerald-400 hover:text-emerald-300 p-1"><i class="fa-solid fa-plus-circle"></i></button>
+                                    ` : ''}
                                     <button onclick="openOtdrModal('${c.id}')" title="OTDR Titik Putus" class="text-red-400 hover:text-red-300 p-1"><i class="fa-solid fa-triangle-exclamation"></i></button>
                                     <button onclick="openCoreMatrixModal('${c.id}')" title="12 Core & Tube" class="text-purple-400 hover:text-purple-300 p-1"><i class="fa-solid fa-palette"></i></button>
-                                    <button onclick="startEditingCableRoute('${c.id}')" title="Edit Titik Rute & Relokasi" class="text-amber-400 hover:text-amber-300 p-1"><i class="fa-solid fa-bezier-curve"></i></button>
-                                    <button onclick="openEditCableModal('${c.id}')" title="Edit Info & Foto" class="text-blue-400 hover:text-blue-300 p-1"><i class="fa-solid fa-pen-to-square"></i></button>
+                                    ${canWrite ? `
+                                        <button onclick="startEditingCableRoute('${c.id}')" title="Edit Titik Rute & Relokasi" class="text-amber-400 hover:text-amber-300 p-1"><i class="fa-solid fa-bezier-curve"></i></button>
+                                        <button onclick="openEditCableModal('${c.id}')" title="Edit Info & Foto" class="text-blue-400 hover:text-blue-300 p-1"><i class="fa-solid fa-pen-to-square"></i></button>
+                                    ` : ''}
                                     <button onclick="map.fitBounds(cablePolylines['${c.id}'].getBounds())" title="Pusatkan Jalur" class="text-slate-400 hover:text-slate-200 p-1"><i class="fa-solid fa-expand"></i></button>
-                                    <button onclick="deleteCable('${c.id}')" title="Hapus" class="text-red-400 hover:text-red-300 p-1"><i class="fa-solid fa-trash"></i></button>
+                                    ${canWrite ? `
+                                        <button onclick="deleteCable('${c.id}')" title="Hapus" class="text-red-400 hover:text-red-300 p-1"><i class="fa-solid fa-trash"></i></button>
+                                    ` : ''}
                                 </div>
                             </div>
 
@@ -1517,12 +1639,18 @@ function updateUI() {
                         <span class="text-[10px] text-slate-400 font-mono">(${c.totalDistance}m)</span>
                     </div>
                     <div class="flex items-center gap-1 flex-shrink-0">
-                        <button onclick="continueDrawingCable('${c.id}')" title="Sambung / Lanjutkan Tarikan Jalur" class="text-emerald-400 hover:text-emerald-300 p-0.5"><i class="fa-solid fa-plus-circle"></i></button>
-                        <button onclick="openOtdrModal('${c.id}')" title="OTDR Titik Putus" class="text-red-400 hover:text-red-300 p-0.5"><i class="fa-solid fa-triangle-exclamation"></i></button>
-                        <button onclick="openCoreMatrixModal('${c.id}')" title="12 Core FO" class="text-purple-400 hover:text-purple-300 p-0.5"><i class="fa-solid fa-palette"></i></button>
-                        <button onclick="startEditingCableRoute('${c.id}')" title="Edit Titik & Relokasi" class="text-amber-400 hover:text-amber-300 p-0.5"><i class="fa-solid fa-bezier-curve"></i></button>
-                        <button onclick="openEditCableModal('${c.id}')" title="Edit Info" class="text-blue-400 hover:text-blue-300 p-0.5"><i class="fa-solid fa-pen-to-square"></i></button>
-                        <button onclick="deleteCable('${c.id}')" title="Hapus Jalur Ini" class="text-red-400 hover:text-red-300 p-0.5"><i class="fa-solid fa-trash"></i></button>
+                        ${canWrite ? `
+                            <button onclick="continueDrawingCable('${c.id}')" title="Sambung / Lanjutkan Tarikan Jalur" class="text-emerald-400 hover:text-emerald-300 p-0.5"><i class="fa-solid fa-plus-circle"></i></button>
+                            <button onclick="openOtdrModal('${c.id}')" title="OTDR Titik Putus" class="text-red-400 hover:text-red-300 p-0.5"><i class="fa-solid fa-triangle-exclamation"></i></button>
+                            <button onclick="openCoreMatrixModal('${c.id}')" title="12 Core FO" class="text-purple-400 hover:text-purple-300 p-0.5"><i class="fa-solid fa-palette"></i></button>
+                            <button onclick="startEditingCableRoute('${c.id}')" title="Edit Titik & Relokasi" class="text-amber-400 hover:text-amber-300 p-0.5"><i class="fa-solid fa-bezier-curve"></i></button>
+                            <button onclick="openEditCableModal('${c.id}')" title="Edit Info" class="text-blue-400 hover:text-blue-300 p-0.5"><i class="fa-solid fa-pen-to-square"></i></button>
+                            <button onclick="deleteCable('${c.id}')" title="Hapus Jalur Ini" class="text-red-400 hover:text-red-300 p-0.5"><i class="fa-solid fa-trash"></i></button>
+                        ` : `
+                            <button onclick="openOtdrModal('${c.id}')" title="OTDR Titik Putus" class="text-red-400 hover:text-red-300 p-0.5"><i class="fa-solid fa-triangle-exclamation"></i></button>
+                            <button onclick="openCoreMatrixModal('${c.id}')" title="12 Core FO" class="text-purple-400 hover:text-purple-300 p-0.5"><i class="fa-solid fa-palette"></i></button>
+                            <button onclick="map.fitBounds(cablePolylines['${c.id}'].getBounds())" title="Pusatkan Jalur" class="text-slate-400 hover:text-slate-200 p-0.5"><i class="fa-solid fa-expand"></i></button>
+                        `}
                     </div>
                 </div>
             `).join('');
@@ -1627,6 +1755,11 @@ function exportJSON() {
 }
 
 function importJSON(event) {
+    if (typeof hasWritePermission === 'function' && !hasWritePermission()) {
+        alert('Akses Ditolak: Hanya SUPER ADMIN yang dapat memuat project JSON.');
+        event.target.value = '';
+        return;
+    }
     const file = event.target.files[0];
     if (!file) return;
     const reader = new FileReader();
@@ -1658,6 +1791,10 @@ function downloadFile(content, filename, mimeType) {
 }
 
 function clearAllData(confirmAsk = true) {
+    if (typeof hasWritePermission === 'function' && !hasWritePermission()) {
+        alert('Akses Ditolak: Hanya SUPER ADMIN yang dapat mereset seluruh database.');
+        return;
+    }
     if (confirmAsk && !confirm('Hapus semua titik dan jalur dari peta?')) return;
     if (typeof finishEditingCableRoute === 'function') finishEditingCableRoute(false);
     Object.values(nodeMarkers).forEach(m => map.removeLayer(m));
@@ -1684,5 +1821,28 @@ function clearAllData(confirmAsk = true) {
             if (nodes.length > 0) map.setView([nodes[0].lat, nodes[0].lng], 15);
         } catch (e) {}
     }
+
+    // Inisialisasi Auth & terapkan hak akses UI
+    if (typeof initAuth === 'function') {
+        initAuth();
+    }
+
+    // Sinkronisasi data dari server jika data lokal masih kosong
+    fetch('/api/projects')
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+            if (data && (data.nodes || data.cables)) {
+                if (!saved || (nodes.length === 0 && cables.length === 0)) {
+                    nodes = data.nodes || [];
+                    cables = data.cables || [];
+                    nodes.forEach(renderNodeMarker);
+                    cables.forEach(renderCablePolyline);
+                    localStorage.setItem('fo_mapper_data', JSON.stringify({ nodes, cables }));
+                    updateUI();
+                    if (nodes.length > 0) map.setView([nodes[0].lat, nodes[0].lng], 15);
+                }
+            }
+        })
+        .catch(() => {});
 })();
 
