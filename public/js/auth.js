@@ -3,9 +3,15 @@
  * Role-Based Access Control: SUPER_ADMIN vs USER (Read-Only) vs GUEST
  */
 
-// State Auth
+// State Auth (Gunakan sessionStorage agar setiap sesi baru selalu meminta login terlebih dahulu)
 let currentAuthUser = null;
-let currentAuthToken = localStorage.getItem('fo_auth_token') || null;
+let currentAuthToken = sessionStorage.getItem('fo_auth_token') || null;
+
+// Bersihkan residual cache login lama di localStorage jika ada
+try {
+    localStorage.removeItem('fo_auth_token');
+    localStorage.removeItem('fo_auth_user');
+} catch (e) {}
 
 // Offline fallback users untuk mode standalone tanpa koneksi server
 const OFFLINE_FALLBACK_USERS = [
@@ -42,9 +48,10 @@ function saveStoredLocalUsers(users) {
 
 /**
  * Inisialisasi Auth saat aplikasi pertama kali dimuat
+ * Default adalah GUEST (Publik) sampai pengguna memasukkan username & password
  */
 async function initAuth() {
-    // Coba cek token ke server
+    // Coba cek token aktif di sesi saat ini
     if (currentAuthToken) {
         try {
             const res = await fetch('/api/auth/me', {
@@ -57,19 +64,19 @@ async function initAuth() {
                 const data = await res.json();
                 if (data.authenticated && data.user) {
                     currentAuthUser = data.user;
-                    localStorage.setItem('fo_auth_user', JSON.stringify(currentAuthUser));
+                    sessionStorage.setItem('fo_auth_user', JSON.stringify(currentAuthUser));
                     applyRoleUI();
                     return;
                 }
             }
         } catch (err) {
-            console.log('Koneksi server API offline, menggunakan sesi lokal.');
+            console.log('Koneksi server API offline, memeriksa sesi lokal...');
         }
     }
 
-    // Fallback dari localStorage jika server tidak merespons
-    const savedUserStr = localStorage.getItem('fo_auth_user');
-    if (savedUserStr) {
+    // Ambil sesi user dari sessionStorage jika ada
+    const savedUserStr = sessionStorage.getItem('fo_auth_user');
+    if (savedUserStr && currentAuthToken) {
         try {
             currentAuthUser = JSON.parse(savedUserStr);
         } catch (e) {
@@ -77,20 +84,25 @@ async function initAuth() {
         }
     }
 
-    // Default jika belum ada login sama sekali: Buat Super Admin aktif pertama kali atau Guest
+    // WAJIB: Jika belum login, status default SELALU GUEST (Publik Read-Only)
     if (!currentAuthUser) {
-        // Otomatis login sebagai SUPER_ADMIN default untuk kenyamanan pemilik
         currentAuthUser = {
-            id: 'usr_superadmin_01',
-            username: 'admin',
-            name: 'Super Admin',
-            role: 'SUPER_ADMIN',
-            avatar: 'fa-user-shield'
+            id: 'usr_guest',
+            username: 'guest',
+            name: 'Pengunjung Publik',
+            role: 'GUEST',
+            avatar: 'fa-user'
         };
-        localStorage.setItem('fo_auth_user', JSON.stringify(currentAuthUser));
     }
 
     applyRoleUI();
+
+    // Jika belum login, tampilkan modal login secara otomatis agar pengguna login terlebih dahulu
+    if (isGuest()) {
+        setTimeout(() => {
+            openLoginModal();
+        }, 400);
+    }
 }
 
 /**
@@ -123,21 +135,16 @@ function openLoginModal() {
         const errEl = document.getElementById('login-error-msg');
         if (errEl) errEl.classList.add('hidden');
         modal.classList.remove('hidden');
+        setTimeout(() => {
+            const uInput = document.getElementById('login-username');
+            if (uInput) uInput.focus();
+        }, 150);
     }
 }
 
 function closeLoginModal() {
     const modal = document.getElementById('modal-auth-login');
     if (modal) modal.classList.add('hidden');
-}
-
-/**
- * Quick fill credentials untuk demo/testing
- */
-function fillLoginDemo(username, password) {
-    document.getElementById('login-username').value = username;
-    document.getElementById('login-password').value = password;
-    submitLogin();
 }
 
 /**
@@ -177,8 +184,8 @@ async function submitLogin() {
         if (res.ok && data.success) {
             currentAuthToken = data.token;
             currentAuthUser = data.user;
-            localStorage.setItem('fo_auth_token', currentAuthToken);
-            localStorage.setItem('fo_auth_user', JSON.stringify(currentAuthUser));
+            sessionStorage.setItem('fo_auth_token', currentAuthToken);
+            sessionStorage.setItem('fo_auth_user', JSON.stringify(currentAuthUser));
             loginSuccess = true;
         } else if (res.status === 401) {
             if (errEl) {
@@ -204,8 +211,8 @@ async function submitLogin() {
                 avatar: found.avatar || (found.role === 'SUPER_ADMIN' ? 'fa-user-shield' : 'fa-hard-hat')
             };
             currentAuthToken = 'local_tok_' + Date.now();
-            localStorage.setItem('fo_auth_token', currentAuthToken);
-            localStorage.setItem('fo_auth_user', JSON.stringify(currentAuthUser));
+            sessionStorage.setItem('fo_auth_token', currentAuthToken);
+            sessionStorage.setItem('fo_auth_user', JSON.stringify(currentAuthUser));
             loginSuccess = true;
         }
     }
@@ -219,11 +226,11 @@ async function submitLogin() {
         closeLoginModal();
         applyRoleUI();
         if (typeof showToast === 'function') {
-            showToast(`👋 Selamat datang, ${currentAuthUser.name}! (${currentAuthUser.role === 'SUPER_ADMIN' ? 'Super Admin' : 'User Read-Only'})`);
+            showToast(`👋 Berhasil masuk! Selamat datang, ${currentAuthUser.name} (${currentAuthUser.role === 'SUPER_ADMIN' ? 'Super Admin' : 'User Read-Only'}).`);
         }
     } else {
         if (errEl) {
-            errEl.innerText = 'Username atau password tidak sesuai.';
+            errEl.innerText = 'Username atau password tidak sesuai. Silakan periksa kembali.';
             errEl.classList.remove('hidden');
         }
     }
@@ -251,13 +258,20 @@ async function executeLogout() {
             role: 'GUEST',
             avatar: 'fa-user'
         };
-        localStorage.removeItem('fo_auth_token');
-        localStorage.setItem('fo_auth_user', JSON.stringify(currentAuthUser));
+        sessionStorage.removeItem('fo_auth_token');
+        sessionStorage.removeItem('fo_auth_user');
+        try {
+            localStorage.removeItem('fo_auth_token');
+            localStorage.removeItem('fo_auth_user');
+        } catch (e) {}
 
         applyRoleUI();
         if (typeof showToast === 'function') {
             showToast('Anda telah keluar. Sekarang dalam mode Publik (Read-Only).');
         }
+        setTimeout(() => {
+            openLoginModal();
+        }, 300);
     }
 }
 
