@@ -1954,6 +1954,9 @@ function clearAllData(confirmAsk = true) {
     window.updateUI = updateUI;
     window.exportKMZ = exportKMZ;
     window.exportKML = exportKML;
+    window.openTutorialModal = openTutorialModal;
+    window.closeTutorialModal = closeTutorialModal;
+    window.switchTutorialTab = switchTutorialTab;
 
     // Inisialisasi Auth & terapkan hak akses UI sebelum render data awal
     if (typeof initAuth === 'function') {
@@ -1973,6 +1976,16 @@ function clearAllData(confirmAsk = true) {
             updateUI();
             if (nodes.length > 0) map.setView([nodes[0].lat, nodes[0].lng], 15);
         } catch (e) {}
+    }
+
+    // Auto-tampilkan tutorial pada kunjungan pertama jika belum pernah ditutup permanen
+    if (!localStorage.getItem('fo_tutorial_seen')) {
+        setTimeout(() => {
+            const loginModal = document.getElementById('modal-auth-login');
+            if (!loginModal || loginModal.classList.contains('hidden')) {
+                openTutorialModal();
+            }
+        }, 1200);
     }
 
     // Sinkronisasi data dari server jika data lokal masih kosong
@@ -1995,4 +2008,51 @@ function clearAllData(confirmAsk = true) {
         })
         .catch(() => {});
 })();
+
+// --- 8. PANDUAN & TUTORIAL TOOLS MODAL ---
+function openTutorialModal() {
+    const modal = document.getElementById('modal-tutorial');
+    if (modal) {
+        switchTutorialTab('quick');
+        modal.classList.remove('hidden');
+    }
+}
+
+function closeTutorialModal(savePreference = false) {
+    const modal = document.getElementById('modal-tutorial');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+    const checkEl = document.getElementById('check-dont-show-tutorial');
+    if (savePreference && checkEl && checkEl.checked) {
+        localStorage.setItem('fo_tutorial_seen', 'true');
+    }
+}
+
+function switchTutorialTab(tabName) {
+    const panels = {
+        quick: document.getElementById('tut-panel-quick'),
+        tools: document.getElementById('tut-panel-tools'),
+        roles: document.getElementById('tut-panel-roles')
+    };
+    const buttons = {
+        quick: document.getElementById('tut-tab-btn-quick'),
+        tools: document.getElementById('tut-tab-btn-tools'),
+        roles: document.getElementById('tut-tab-btn-roles')
+    };
+
+    Object.keys(panels).forEach(key => {
+        if (panels[key]) {
+            if (key === tabName) panels[key].classList.remove('hidden');
+            else panels[key].classList.add('hidden');
+        }
+        if (buttons[key]) {
+            if (key === tabName) {
+                buttons[key].className = 'px-3 py-1.5 rounded-lg bg-blue-600 text-white shadow transition flex items-center gap-1.5 whitespace-nowrap';
+            } else {
+                buttons[key].className = 'px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition flex items-center gap-1.5 whitespace-nowrap';
+            }
+        }
+    });
+}
 

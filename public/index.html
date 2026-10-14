@@ -31,9 +31,14 @@
                         <p class="text-[10px] text-slate-400">GIS Jalur Kabel FO & Titik Closure</p>
                     </div>
                 </div>
-                <button id="btn-reset-database" onclick="clearAllData()" title="Reset Semua Data (Super Admin)" class="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded border border-red-900/50 hover:bg-red-950/40">
-                    <i class="fa-solid fa-trash-can"></i> Reset
-                </button>
+                <div class="flex items-center gap-1.5">
+                    <button onclick="openTutorialModal()" title="Panduan & Tutorial Penggunaan" class="text-xs text-blue-400 hover:text-blue-300 px-2 py-1 rounded border border-blue-900/50 hover:bg-blue-950/40 flex items-center gap-1 font-medium transition">
+                        <i class="fa-solid fa-circle-question"></i> Panduan
+                    </button>
+                    <button id="btn-reset-database" onclick="clearAllData()" title="Reset Semua Data (Super Admin)" class="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded border border-red-900/50 hover:bg-red-950/40">
+                        <i class="fa-solid fa-trash-can"></i> Reset
+                    </button>
+                </div>
             </div>
 
             <!-- Profile & Account Status Bar -->
@@ -416,6 +421,10 @@
     <div class="flex-1 relative">
         <!-- Floating Map Quick Tools -->
         <div class="absolute top-4 right-14 z-[400] flex items-center gap-2">
+            <button onclick="openTutorialModal()" title="Panduan & Pengertian Tools" class="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-blue-600/90 hover:bg-blue-500 text-white border border-blue-400/40 shadow-lg backdrop-blur flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-circle-question"></i>
+                <span class="hidden sm:inline">Panduan</span>
+            </button>
             <div id="map-auth-pill"></div>
             <button id="btn-toggle-snap-road" onclick="toggleSnapToRoad()" title="Otomatis tarik garis kabel mengikuti jalan raya (OSRM)" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700/80 shadow-lg backdrop-blur flex items-center gap-1.5 transition">
                 <i class="fa-solid fa-road text-amber-400"></i> Snap Jalan: <b>OFF</b>
@@ -710,6 +719,209 @@
 
             <div class="p-3 bg-slate-850 border-t border-slate-700 flex justify-end">
                 <button onclick="closeUserManagementModal()" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs">Tutup</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Panduan & Tutorial Tools -->
+    <div id="modal-tutorial" class="hidden fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
+            <!-- Modal Header -->
+            <div class="p-4 border-b border-slate-700 flex items-center justify-between bg-slate-850">
+                <div class="flex items-center gap-2.5">
+                    <span class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white text-base shadow">
+                        <i class="fa-solid fa-book-open-reader"></i>
+                    </span>
+                    <div>
+                        <h3 class="font-bold text-white text-sm">Panduan Penggunaan & Pengertian Tools</h3>
+                        <p class="text-[11px] text-blue-400">Tutorial singkat pengoperasian FO Network Mapper</p>
+                    </div>
+                </div>
+                <button onclick="closeTutorialModal()" class="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Tab Switcher Inside Modal -->
+            <div class="p-2.5 bg-slate-950/70 border-b border-slate-800 flex gap-1.5 text-xs font-semibold overflow-x-auto">
+                <button id="tut-tab-btn-quick" onclick="switchTutorialTab('quick')" class="px-3 py-1.5 rounded-lg bg-blue-600 text-white shadow transition flex items-center gap-1.5 whitespace-nowrap">
+                    <i class="fa-solid fa-bolt text-amber-300"></i> Alur Cepat (3 Langkah)
+                </button>
+                <button id="tut-tab-btn-tools" onclick="switchTutorialTab('tools')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition flex items-center gap-1.5 whitespace-nowrap">
+                    <i class="fa-solid fa-toolbox text-blue-400"></i> Pengertian Tools & Tombol
+                </button>
+                <button id="tut-tab-btn-roles" onclick="switchTutorialTab('roles')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition flex items-center gap-1.5 whitespace-nowrap">
+                    <i class="fa-solid fa-user-shield text-emerald-400"></i> Hak Akses (Role Akun)
+                </button>
+            </div>
+
+            <!-- Modal Body Content -->
+            <div class="p-4 space-y-4 overflow-y-auto flex-1 text-xs">
+                <!-- PANEL 1: ALUR KERJA CEPAT -->
+                <div id="tut-panel-quick" class="space-y-3">
+                    <div class="p-3 rounded-xl bg-blue-950/40 border border-blue-800/60 text-blue-200 text-xs flex items-center gap-2">
+                        <i class="fa-solid fa-circle-info text-blue-400 text-base flex-shrink-0"></i>
+                        <span>Ikuti 3 langkah praktis ini untuk memetakan jaringan kabel fiber optic dalam hitungan menit:</span>
+                    </div>
+
+                    <!-- Step 1 -->
+                    <div class="bg-slate-800/70 p-3.5 rounded-xl border border-slate-700 space-y-2">
+                        <div class="flex items-center gap-2">
+                            <span class="w-6 h-6 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-xs">1</span>
+                            <h4 class="font-bold text-white text-xs">Tentukan Titik Tiang / ODP / Gedung</h4>
+                        </div>
+                        <p class="text-slate-300 text-[11px] leading-relaxed pl-8">
+                            Klik tombol mode <b>`+ Titik`</b> di panel atas, lalu klik posisi tiang/gedung di peta. Anda juga bisa mengisi koordinat GPS, nama perangkat, dan mengunggah foto dokumentasi fisik.
+                        </p>
+                    </div>
+
+                    <!-- Step 2 -->
+                    <div class="bg-slate-800/70 p-3.5 rounded-xl border border-slate-700 space-y-2">
+                        <div class="flex items-center gap-2">
+                            <span class="w-6 h-6 rounded-full bg-emerald-600 text-white font-bold flex items-center justify-center text-xs">2</span>
+                            <h4 class="font-bold text-white text-xs">Tarik & Hubungkan Jalur Kabel FO</h4>
+                        </div>
+                        <p class="text-slate-300 text-[11px] leading-relaxed pl-8">
+                            Klik tombol mode <b>`+ Jalur`</b> lalu klik titik awal dan titik akhir di peta. Atau di Tab <b>Data</b>, klik ikon <b>Rute Hijau 🛣️</b> di samping nama gedung/titik untuk langsung menyambung kabel!
+                        </p>
+                    </div>
+
+                    <!-- Step 3 -->
+                    <div class="bg-slate-800/70 p-3.5 rounded-xl border border-slate-700 space-y-2">
+                        <div class="flex items-center gap-2">
+                            <span class="w-6 h-6 rounded-full bg-amber-600 text-white font-bold flex items-center justify-center text-xs">3</span>
+                            <h4 class="font-bold text-white text-xs">Klik Kabel di Peta untuk Fitur Lanjutan</h4>
+                        </div>
+                        <p class="text-slate-300 text-[11px] leading-relaxed pl-8">
+                            Klik garis kabel mana saja di peta untuk membuka menu teknis lengkap:
+                            <br>• <b>Sambung Jalur:</b> Lanjutkan tarikan rute dari ujung terakhir.
+                            <br>• <b>Edit Belokan & Relokasi:</b> Menggeser dan meluruskan titik sudut rute jika ada perubahan tiang.
+                            <br>• <b>Lacak Putus (OTDR Fault):</b> Masukkan meter hasil ukur OTDR lapangan untuk mencari titik putus di peta.
+                            <br>• <b>12 Warna Core:</b> Kelola alokasi tube dan 12 warna core standar TIA/EIA-598.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- PANEL 2: PENGERTIAN TOOLS -->
+                <div id="tut-panel-tools" class="hidden space-y-2.5">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <div class="bg-slate-800/70 p-2.5 rounded-xl border border-slate-700 space-y-1">
+                            <div class="font-bold text-white flex items-center gap-1.5 text-xs">
+                                <span class="w-6 h-6 rounded bg-blue-600 flex items-center justify-center text-white"><i class="fa-solid fa-hand text-[10px]"></i></span>
+                                <span>Mode Geser (Pan)</span>
+                            </div>
+                            <p class="text-[11px] text-slate-300">Navigasi bebas. Geser dan zoom peta tanpa khawatir mengubah atau menghapus data.</p>
+                        </div>
+
+                        <div class="bg-slate-800/70 p-2.5 rounded-xl border border-slate-700 space-y-1">
+                            <div class="font-bold text-white flex items-center gap-1.5 text-xs">
+                                <span class="w-6 h-6 rounded bg-emerald-600 flex items-center justify-center text-white"><i class="fa-solid fa-location-dot text-[10px]"></i></span>
+                                <span>Mode + Titik</span>
+                            </div>
+                            <p class="text-[11px] text-slate-300">Klik sembarang tempat di peta untuk menaruh Tiang, ODP, Closure, ODC, atau Gedung.</p>
+                        </div>
+
+                        <div class="bg-slate-800/70 p-2.5 rounded-xl border border-slate-700 space-y-1">
+                            <div class="font-bold text-white flex items-center gap-1.5 text-xs">
+                                <span class="w-6 h-6 rounded bg-purple-600 flex items-center justify-center text-white"><i class="fa-solid fa-route text-[10px]"></i></span>
+                                <span>Mode + Jalur</span>
+                            </div>
+                            <p class="text-[11px] text-slate-300">Klik titik awal dan klik titik-titik berikutnya untuk menggelar tarikan kabel FO baru.</p>
+                        </div>
+
+                        <div class="bg-slate-800/70 p-2.5 rounded-xl border border-slate-700 space-y-1">
+                            <div class="font-bold text-white flex items-center gap-1.5 text-xs">
+                                <span class="w-6 h-6 rounded bg-red-600 flex items-center justify-center text-white"><i class="fa-solid fa-trash-can text-[10px]"></i></span>
+                                <span>Mode Hapus</span>
+                            </div>
+                            <p class="text-[11px] text-slate-300">Klik langsung tiang atau garis kabel yang ingin dihapus (hanya aktif untuk Super Admin).</p>
+                        </div>
+
+                        <div class="bg-slate-800/70 p-2.5 rounded-xl border border-slate-700 space-y-1">
+                            <div class="font-bold text-white flex items-center gap-1.5 text-xs">
+                                <span class="w-6 h-6 rounded bg-amber-600 flex items-center justify-center text-white"><i class="fa-solid fa-road text-[10px]"></i></span>
+                                <span>Snap Jalan (OSRM)</span>
+                            </div>
+                            <p class="text-[11px] text-slate-300">Saat aktif, tarikan kabel akan otomatis meliuk mengikuti jalan raya, tidak berupa garis lurus kaku.</p>
+                        </div>
+
+                        <div class="bg-slate-800/70 p-2.5 rounded-xl border border-slate-700 space-y-1">
+                            <div class="font-bold text-white flex items-center gap-1.5 text-xs">
+                                <span class="w-6 h-6 rounded bg-red-700 flex items-center justify-center text-white"><i class="fa-solid fa-triangle-exclamation text-[10px]"></i></span>
+                                <span>OTDR Fault Locator</span>
+                            </div>
+                            <p class="text-[11px] text-slate-300">Ketik hasil ukur meter dari alat OTDR, sistem langsung menancapkan marker titik putus kabel di peta.</p>
+                        </div>
+
+                        <div class="bg-slate-800/70 p-2.5 rounded-xl border border-slate-700 space-y-1">
+                            <div class="font-bold text-white flex items-center gap-1.5 text-xs">
+                                <span class="w-6 h-6 rounded bg-cyan-600 flex items-center justify-center text-white"><i class="fa-solid fa-palette text-[10px]"></i></span>
+                                <span>12 Warna Core TIA</span>
+                            </div>
+                            <p class="text-[11px] text-slate-300">Pengaturan warna standar internasional (Biru, Oranye, Hijau, dst) per tube dan kapasitas kabel.</p>
+                        </div>
+
+                        <div class="bg-slate-800/70 p-2.5 rounded-xl border border-slate-700 space-y-1">
+                            <div class="font-bold text-white flex items-center gap-1.5 text-xs">
+                                <span class="w-6 h-6 rounded bg-slate-700 flex items-center justify-center text-white"><i class="fa-solid fa-file-zipper text-[10px]"></i></span>
+                                <span>Backup JSON & KMZ</span>
+                            </div>
+                            <p class="text-[11px] text-slate-300">Unduh seluruh arsip data untuk dicadangkan (JSON) atau dibuka langsung di Google Earth (KMZ).</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PANEL 3: HAK AKSES ROLE -->
+                <div id="tut-panel-roles" class="hidden space-y-3">
+                    <div class="bg-slate-800/70 p-3.5 rounded-xl border border-amber-500/40 space-y-2">
+                        <div class="flex items-center gap-2">
+                            <span class="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center text-sm font-bold border border-amber-500/40">
+                                <i class="fa-solid fa-crown"></i>
+                            </span>
+                            <div>
+                                <h4 class="font-bold text-white text-xs">SUPER ADMIN (Full Akses)</h4>
+                                <p class="text-[10px] text-amber-400 font-medium">Kewenangan Penuh Pengelola Jaringan</p>
+                            </div>
+                        </div>
+                        <ul class="text-slate-300 text-[11px] space-y-1 pl-4 list-disc">
+                            <li>Bisa menambah, mengedit, dan menghapus titik & kabel FO.</li>
+                            <li>Bisa merelokasi dan menggeser belokan kabel di peta.</li>
+                            <li>Bisa mengunggah dan menghapus foto dokumentasi tiang/closure.</li>
+                            <li>Bisa membuat akun teknisi baru dan mengatur role pengguna.</li>
+                            <li>Bisa memuat ulang project dari file backup JSON (*Load JSON*).</li>
+                        </ul>
+                    </div>
+
+                    <div class="bg-slate-800/70 p-3.5 rounded-xl border border-blue-500/40 space-y-2">
+                        <div class="flex items-center gap-2">
+                            <span class="w-7 h-7 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center text-sm font-bold border border-blue-500/40">
+                                <i class="fa-solid fa-hard-hat"></i>
+                            </span>
+                            <div>
+                                <h4 class="font-bold text-white text-xs">USER (Read-Only Teknisi Lapangan)</h4>
+                                <p class="text-[10px] text-blue-400 font-medium">Monitoring & Penanganan Gangguan Aman</p>
+                            </div>
+                        </div>
+                        <ul class="text-slate-300 text-[11px] space-y-1 pl-4 list-disc">
+                            <li>Bisa menjelajahi peta, melihat rute gedung, dan mengecek jarak kabel.</li>
+                            <li>Bisa menggunakan fitur <b>OTDR Fault Locator</b> untuk melacak titik kabel putus di lapangan.</li>
+                            <li>Bisa melihat alokasi 12 warna core dan foto dokumentasi.</li>
+                            <li><b>Aman:</b> Tidak dapat menghapus atau mengubah data yang sudah ada, sehingga data jaringan aman dari ketidaksengajaan.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-3 bg-slate-850 border-t border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-2.5">
+                <label class="flex items-center gap-2 text-[11px] text-slate-400 cursor-pointer select-none">
+                    <input type="checkbox" id="check-dont-show-tutorial" class="rounded bg-slate-800 border-slate-700 text-blue-600 focus:ring-0">
+                    <span>Jangan tampilkan panduan ini otomatis lagi</span>
+                </label>
+                <button onclick="closeTutorialModal(true)" class="w-full sm:w-auto px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow transition">
+                    <span>Mengerti & Tutup</span>
+                    <i class="fa-solid fa-arrow-right"></i>
+                </button>
             </div>
         </div>
     </div>
