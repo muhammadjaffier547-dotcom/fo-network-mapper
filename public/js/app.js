@@ -1716,7 +1716,7 @@ async function searchLocation() {
     }
 }
 
-function exportKML() {
+function generateKMLString() {
     let kml = `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
 <Document>
@@ -1759,7 +1759,113 @@ function exportKML() {
     });
     kml += `</Document>
 </kml>`;
+    return kml;
+}
+
+function exportKML() {
+    const kml = generateKMLString();
     downloadFile(kml, 'jalur_fo_closure.kml', 'application/vnd.google-earth.kml+xml');
+}
+
+const crc32Table = (function() {
+    let c;
+    const table = [];
+    for (let n = 0; n < 256; n++) {
+        c = n;
+        for (let k = 0; k < 8; k++) {
+            c = ((c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1));
+        }
+        table[n] = c;
+    }
+    return table;
+})();
+
+function calculateCrc32(bytes) {
+    let crc = 0 ^ (-1);
+    for (let i = 0; i < bytes.length; i++) {
+        crc = (crc >>> 8) ^ crc32Table[(crc ^ bytes[i]) & 0xFF];
+    }
+    return (crc ^ (-1)) >>> 0;
+}
+
+function exportKMZ() {
+    const kml = generateKMLString();
+    try {
+        const encoder = new TextEncoder();
+        const fileBytes = encoder.encode(kml);
+        const filename = 'doc.kml';
+        const filenameBytes = encoder.encode(filename);
+        const crc = calculateCrc32(fileBytes);
+        const size = fileBytes.length;
+
+        // 1. Local File Header (30 bytes + filename)
+        const localHeader = new Uint8Array(30 + filenameBytes.length);
+        const lView = new DataView(localHeader.buffer);
+        lView.setUint32(0, 0x04034b50, true);
+        lView.setUint16(4, 20, true);
+        lView.setUint16(6, 0, true);
+        lView.setUint16(8, 0, true);
+        lView.setUint16(10, 0, true);
+        lView.setUint16(12, 0, true);
+        lView.setUint32(14, crc, true);
+        lView.setUint32(18, size, true);
+        lView.setUint32(22, size, true);
+        lView.setUint16(26, filenameBytes.length, true);
+        lView.setUint16(28, 0, true);
+        localHeader.set(filenameBytes, 30);
+
+        // 2. Central Directory Header (46 bytes + filename)
+        const cdHeader = new Uint8Array(46 + filenameBytes.length);
+        const cdView = new DataView(cdHeader.buffer);
+        cdView.setUint32(0, 0x02014b50, true);
+        cdView.setUint16(4, 20, true);
+        cdView.setUint16(6, 20, true);
+        cdView.setUint16(8, 0, true);
+        cdView.setUint16(10, 0, true);
+        cdView.setUint16(12, 0, true);
+        cdView.setUint16(14, 0, true);
+        cdView.setUint32(16, crc, true);
+        cdView.setUint32(20, size, true);
+        cdView.setUint32(24, size, true);
+        cdView.setUint16(28, filenameBytes.length, true);
+        cdView.setUint16(30, 0, true);
+        cdView.setUint16(32, 0, true);
+        cdView.setUint16(34, 0, true);
+        cdView.setUint16(36, 0, true);
+        cdView.setUint32(38, 0, true);
+        cdView.setUint32(42, 0, true); // Local header offset
+        cdHeader.set(filenameBytes, 46);
+
+        const cdOffset = localHeader.length + fileBytes.length;
+        const cdSize = cdHeader.length;
+
+        // 3. End of Central Directory (22 bytes)
+        const eocd = new Uint8Array(22);
+        const eView = new DataView(eocd.buffer);
+        eView.setUint32(0, 0x06054b50, true);
+        eView.setUint16(4, 0, true);
+        eView.setUint16(6, 0, true);
+        eView.setUint16(8, 1, true);
+        eView.setUint16(10, 1, true);
+        eView.setUint32(12, cdSize, true);
+        eView.setUint32(16, cdOffset, true);
+        eView.setUint16(20, 0, true);
+
+        const blob = new Blob([localHeader, fileBytes, cdHeader, eocd], { type: 'application/vnd.google-earth.kmz' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'jalur_fo_network.kmz';
+        a.click();
+        URL.revokeObjectURL(url);
+
+        if (typeof showToast === 'function') {
+            showToast('🌍 Berhasil mengunduh file KMZ (Google Earth).');
+        }
+    } catch (err) {
+        console.error('Fallback ke KML:', err);
+        exportKML();
+    }
 }
 
 function exportCSV() {
@@ -1846,6 +1952,8 @@ function clearAllData(confirmAsk = true) {
     window.getNodePopupHtml = getNodePopupHtml;
     window.getCablePopupHtml = getCablePopupHtml;
     window.updateUI = updateUI;
+    window.exportKMZ = exportKMZ;
+    window.exportKML = exportKML;
 
     // Inisialisasi Auth & terapkan hak akses UI sebelum render data awal
     if (typeof initAuth === 'function') {
