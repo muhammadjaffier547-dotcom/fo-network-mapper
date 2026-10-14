@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="no-referrer">
+    <title>FO Network Mapper - Peta Jalur Kabel & Closure</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Leaflet CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <!-- Custom Modular CSS -->
+    <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="bg-slate-900 text-slate-100 flex">
+
+    <!-- Sidebar Panel -->
+    <div class="w-96 bg-slate-800 border-r border-slate-700 h-screen flex flex-col z-10 shadow-2xl">
+        <!-- Header -->
+        <div class="p-4 bg-slate-900 border-b border-slate-700 flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+                <div class="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold shadow">
+                    <i class="fa-solid fa-network-wired"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-base leading-tight text-white">FO Network Mapper</h1>
+                    <p class="text-xs text-slate-400">GIS Jalur Kabel FO & Titik Closure</p>
+                </div>
+            </div>
+            <button onclick="clearAllData()" title="Reset Semua Data" class="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded border border-red-900/50 hover:bg-red-950/40">
+                <i class="fa-solid fa-trash-can"></i> Reset
+            </button>
+        </div>
+
+        <!-- Mode Selector -->
+        <div class="p-3 bg-slate-800/90 border-b border-slate-700">
+            <label class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block mb-2">Mode Interaksi Peta</label>
+            <div class="grid grid-cols-4 gap-1">
+                <button id="btn-mode-pan" onclick="setMode('pan')" class="mode-btn py-2 px-1 rounded-lg text-[11px] font-medium bg-blue-600 text-white flex flex-col items-center gap-1 border border-blue-500">
+                    <i class="fa-solid fa-hand"></i> Geser
+                </button>
+                <button id="btn-mode-node" onclick="setMode('node')" class="mode-btn py-2 px-1 rounded-lg text-[11px] font-medium bg-slate-700 hover:bg-slate-600 text-slate-200 flex flex-col items-center gap-1 border border-slate-600">
+                    <i class="fa-solid fa-location-dot"></i> + Titik
+                </button>
+                <button id="btn-mode-cable" onclick="setMode('cable')" class="mode-btn py-2 px-1 rounded-lg text-[11px] font-medium bg-slate-700 hover:bg-slate-600 text-slate-200 flex flex-col items-center gap-1 border border-slate-600">
+                    <i class="fa-solid fa-route"></i> + Jalur
+                </button>
+                <button id="btn-mode-delete" onclick="setMode('delete')" class="mode-btn py-2 px-1 rounded-lg text-[11px] font-medium bg-slate-700 hover:bg-red-950/70 text-red-300 flex flex-col items-center gap-1 border border-slate-600 hover:border-red-600">
+                    <i class="fa-solid fa-trash-can"></i> Hapus
+                </button>
+            </div>
+
+            <!-- Banner Gambar Jalur Aktif -->
+            <div id="drawing-banner" class="hidden mt-2 p-2 bg-amber-500/20 border border-amber-500/40 rounded-xl text-xs text-amber-200 space-y-1.5">
+                <div class="flex items-center justify-between">
+                    <span id="drawing-banner-title" class="font-semibold text-[11px]"><i class="fa-solid fa-route mr-1"></i> Klik titik/peta untuk rute FO</span>
+                    <span id="active-point-count" class="text-[10px] bg-amber-500/30 px-1.5 py-0.5 rounded text-amber-200 font-bold">0 titik</span>
+                </div>
+                <div class="grid grid-cols-3 gap-1 pt-0.5">
+                    <button onclick="undoLastCablePoint()" title="Batalkan titik terakhir" class="bg-slate-700 hover:bg-slate-600 text-amber-300 py-1 rounded text-[11px] font-semibold flex items-center justify-center gap-1 border border-slate-600">
+                        <i class="fa-solid fa-rotate-left"></i> Undo
+                    </button>
+                    <button onclick="cancelDrawingCable()" title="Batalkan seluruh tarikan jalur ini" class="bg-red-900/60 hover:bg-red-800 text-red-200 py-1 rounded text-[11px] font-semibold flex items-center justify-center gap-1 border border-red-700/50">
+                        <i class="fa-solid fa-ban"></i> Batal
+                    </button>
+                    <button onclick="finishDrawingCable()" title="Selesai dan simpan jalur FO" class="bg-emerald-600 hover:bg-emerald-500 text-white py-1 rounded text-[11px] font-semibold flex items-center justify-center gap-1 shadow">
+                        <i class="fa-solid fa-check"></i> Selesai
+                    </button>
+                </div>
+            </div>
+
+            <!-- Banner Mode Hapus -->
+            <div id="delete-banner" class="hidden mt-2 p-2 bg-red-500/20 border border-red-500/40 rounded-xl text-xs text-red-200 flex items-center justify-between">
+                <span><i class="fa-solid fa-eraser mr-1"></i> <b>Mode Hapus:</b> Klik jalur FO / titik di peta.</span>
+                <button onclick="setMode('pan')" class="bg-slate-700 hover:bg-slate-600 text-white px-2 py-0.5 rounded text-[11px] font-semibold">Tutup</button>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="flex border-b border-slate-700 text-xs font-semibold bg-slate-850">
+            <button onclick="switchTab('tab-input')" id="tab-btn-input" class="flex-1 py-2.5 border-b-2 border-blue-500 text-blue-400">Input Titik / FO</button>
+            <button onclick="switchTab('tab-list')" id="tab-btn-list" class="flex-1 py-2.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200">Data (<span id="count-badge">0</span>)</button>
+            <button onclick="switchTab('tab-export')" id="tab-btn-export" class="flex-1 py-2.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200">Ekspor / File</button>
+        </div>
+
+        <!-- Scrollable Content -->
+        <div class="flex-1 overflow-y-auto p-4 space-y-4">
+
+            <!-- TAB 1: INPUT -->
+            <div id="tab-input" class="space-y-4">
+                <!-- Form Titik -->
+                <div class="bg-slate-900/70 p-3.5 rounded-xl border border-slate-700/80 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-xs font-bold uppercase tracking-wider text-blue-400"><i class="fa-solid fa-map-pin mr-1"></i> Pengaturan & Input Titik</h2>
+                    </div>
+
+                    <div>
+                        <label class="text-xs text-slate-300 block mb-1">Nama Titik / ID Perangkat</label>
+                        <input id="node-name" type="text" placeholder="Contoh: JC-01 Simpang / ODP-05" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-xs text-slate-300 block mb-1">Jenis Titik</label>
+                            <select id="node-type" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500">
+                                <option value="Gedung">Gedung / Titik Power</option>
+                                <option value="Closure">Joint Closure (JB)</option>
+                                <option value="Handhole">Handhole (HH) / Manhole</option>
+                                <option value="ODP">ODP</option>
+                                <option value="ODC">ODC</option>
+                                <option value="POP">POP / Server</option>
+                                <option value="Tiang">Tiang tumpu</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-xs text-slate-300 block mb-1">Keterangan / Core</label>
+                            <input id="node-note" type="text" placeholder="Misal: 24C / Splitter 1:8" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="text-xs text-slate-300 block mb-1">Deskripsi & Catatan Lengkap</label>
+                        <textarea id="node-desc" rows="2" placeholder="Catatan teknis, posisi tiang, redaman -dBm, jalur splicing..." class="w-full bg-slate-800 border border-slate-600 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"></textarea>
+                    </div>
+
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="text-xs text-slate-300"><i class="fa-solid fa-camera mr-1 text-blue-400"></i> Dokumentasi Foto</label>
+                            <span id="node-photo-count" class="text-[10px] text-slate-400">0 foto</span>
+                        </div>
+                        <label class="block bg-slate-800 hover:bg-slate-750 border border-dashed border-slate-600 hover:border-blue-500 rounded-lg p-2 text-center cursor-pointer transition text-xs text-slate-300">
+                            <i class="fa-solid fa-cloud-arrow-up mr-1 text-blue-400"></i> Upload Foto Titik
+                            <input type="file" id="node-photo-input" accept="image/*" multiple onchange="handleNodePhotoUpload(event)" class="hidden">
+                        </label>
+                        <div id="node-photo-preview" class="flex flex-wrap gap-1.5 mt-2"></div>
+                    </div>
+
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="text-xs text-slate-300">Koordinat Google Maps (Lat, Lng)</label>
+                            <button type="button" onclick="fillCoordsFromGps()" title="Ambil koordinat GPS perangkat Anda saat ini" class="text-[11px] text-blue-400 hover:text-blue-300 flex items-center gap-1 font-semibold">
+                                <i class="fa-solid fa-crosshairs"></i> Lokasi Saya
+                            </button>
+                        </div>
+                        <div class="flex gap-1.5">
+                            <input id="node-coords" type="text" placeholder="-6.2088, 106.8456" class="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500">
+                            <button onclick="addNodeFromInput()" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap shadow">
+                                + Tambah
+                            </button>
+                        </div>
+                        <p class="text-[11px] text-slate-400 mt-1">Copy-paste koordinat, klik <b>Lokasi Saya</b>, atau gunakan mode <b>+ Titik</b> di peta.</p>
+                    </div>
+                </div>
+
+                <!-- Form Jalur FO -->
+                <div class="bg-slate-900/70 p-3.5 rounded-xl border border-slate-700/80 space-y-3">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-emerald-400"><i class="fa-solid fa-bezier-curve mr-1"></i> Spesifikasi Jalur Kabel FO</h2>
+
+                    <div>
+                        <label class="text-xs text-slate-300 block mb-1">Nama Segmen Jalur</label>
+                        <input id="cable-name" type="text" placeholder="Contoh: Jalur Gedung A - Gedung B" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500">
+                    </div>
+
+                    <!-- Koneksi Antar Gedung & Titik Power -->
+                    <div class="bg-slate-850 p-2.5 rounded-lg border border-amber-500/30 space-y-2">
+                        <div class="text-[11px] font-bold text-amber-400 uppercase tracking-wider flex items-center justify-between">
+                            <span><i class="fa-solid fa-building-circle-bolt mr-1"></i> Rute Antar Gedung & Power</span>
+                            <span class="text-[10px] text-slate-400 font-normal">Gedung A ➔ Gedung B</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-[11px] text-slate-300 block mb-0.5 font-medium">Dari Gedung (Titik A)</label>
+                                <input id="cable-from-building" list="building-suggestions" type="text" placeholder="Misal: Gedung A" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500">
+                            </div>
+                            <div>
+                                <label class="text-[11px] text-slate-300 block mb-0.5 font-medium">Ke Gedung (Titik B)</label>
+                                <input id="cable-to-building" list="building-suggestions" type="text" placeholder="Misal: Gedung B" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-[11px] text-slate-300 block mb-0.5 font-medium">Sumber Titik Power</label>
+                                <select id="cable-power-source" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500">
+                                    <option value="Power dari Gedung Asal">⚡ Power dari Gedung Asal</option>
+                                    <option value="Power dari Gedung Tujuan">⚡ Power dari Gedung Tujuan</option>
+                                    <option value="Dual Power (Gedung A & B)">⚡ Dual Power (Kedua Gedung)</option>
+                                    <option value="Power Mandiri / Tiang">⚡ Power Mandiri / Tiang</option>
+                                    <option value="Tanpa Power Aktif (Pasif)">⚪ Pasif (Kabel FO Saja)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-[11px] text-slate-300 block mb-0.5 font-medium">Catatan / Kapasitas Power</label>
+                                <input id="cable-power-notes" type="text" placeholder="Contoh: UPS 2KVA, Panel Lt 1" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500">
+                            </div>
+                        </div>
+                        <datalist id="building-suggestions"></datalist>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-xs text-slate-300 block mb-1">Kapasitas Kabel</label>
+                            <select id="cable-type" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500">
+                                <option value="12 Core|#3b82f6">12 Core (Biru)</option>
+                                <option value="24 Core|#f97316" selected>24 Core (Oranye)</option>
+                                <option value="48 Core|#10b981">48 Core (Hijau)</option>
+                                <option value="96 Core|#a855f7">96 Core (Ungu)</option>
+                                <option value="Dropcore|#eab308">Dropcore (Kuning)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-xs text-slate-300 block mb-1">Cadangan / Slack (%)</label>
+                            <input id="cable-slack" type="number" value="10" min="0" max="100" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="text-xs text-slate-300 block mb-1">Deskripsi & Catatan Jalur</label>
+                        <textarea id="cable-desc" rows="2" placeholder="Detail bentangan, span tiang, gorong-gorong, redaman..." class="w-full bg-slate-800 border border-slate-600 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"></textarea>
+                    </div>
+
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="text-xs text-slate-300"><i class="fa-solid fa-camera mr-1 text-emerald-400"></i> Dokumentasi Foto Jalur</label>
+                            <span id="cable-photo-count" class="text-[10px] text-slate-400">0 foto</span>
+                        </div>
+                        <label class="block bg-slate-800 hover:bg-slate-750 border border-dashed border-slate-600 hover:border-emerald-500 rounded-lg p-2 text-center cursor-pointer transition text-xs text-slate-300">
+                            <i class="fa-solid fa-cloud-arrow-up mr-1 text-emerald-400"></i> Upload Foto Jalur
+                            <input type="file" id="cable-photo-input" accept="image/*" multiple onchange="handleCablePhotoUpload(event)" class="hidden">
+                        </label>
+                        <div id="cable-photo-preview" class="flex flex-wrap gap-1.5 mt-2"></div>
+                    </div>
+
+                    <div class="pt-1">
+                        <button onclick="connectAllClosures()" class="w-full bg-slate-700 hover:bg-slate-600 text-slate-200 py-2 px-3 rounded-lg text-xs font-medium border border-slate-600 transition">
+                            <i class="fa-solid fa-wand-magic-sparkles mr-1 text-amber-400"></i> Hubungkan Otomatis Titik Berurutan
+                        </button>
+                    </div>
+
+                    <!-- Quick Cable List & Delete on Tab 1 -->
+                    <div class="pt-2 border-t border-slate-700/80">
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                                <i class="fa-solid fa-list-check mr-1 text-emerald-400"></i> Kelola / Hapus Jalur FO
+                            </label>
+                            <span id="quick-cable-count" class="text-[10px] text-slate-500">0 jalur</span>
+                        </div>
+                        <div id="quick-cable-list" class="space-y-1.5 max-h-48 overflow-y-auto pr-1"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: DATA LIST -->
+            <div id="tab-list" class="hidden space-y-4">
+                <!-- Summary Card -->
+                <div class="grid grid-cols-2 gap-2 bg-slate-900 p-3 rounded-xl border border-slate-700">
+                    <div>
+                        <span class="text-[11px] text-slate-400 block">Total Titik</span>
+                        <span id="stat-nodes" class="text-lg font-bold text-white">0</span>
+                    </div>
+                    <div>
+                        <span class="text-[11px] text-slate-400 block">Total Kabel (+Slack)</span>
+                        <span id="stat-length" class="text-lg font-bold text-emerald-400">0 m</span>
+                    </div>
+                </div>
+
+                <!-- 1. SEKSI TITIK LOKASI (GROUPED BY CATEGORY) -->
+                <div class="bg-slate-900/90 p-3 rounded-xl border border-slate-700/80 space-y-2.5">
+                    <div class="flex items-center justify-between cursor-pointer select-none" onclick="toggleDataSection('nodes')">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-location-dot text-blue-400 text-sm"></i>
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-white">Daftar Titik Lokasi</h3>
+                            <span id="node-count-badge" class="text-[10px] bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded font-bold">0 titik</span>
+                        </div>
+                        <div class="flex items-center gap-1.5 text-slate-400">
+                            <span class="text-[10px] text-slate-500">Per Kategori</span>
+                            <i id="section-icon-nodes" class="fa-solid fa-chevron-down text-xs transition-transform duration-200"></i>
+                        </div>
+                    </div>
+
+                    <div id="section-content-nodes" class="space-y-2">
+                        <!-- Search & Quick Filter Pills -->
+                        <div class="space-y-1.5">
+                            <div class="relative">
+                                <input type="text" id="node-search-input" placeholder="Cari nama titik / keterangan..." oninput="searchNodeGroup(this.value)" class="w-full bg-slate-800 border border-slate-700 rounded-lg pl-7 pr-2.5 py-1 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500">
+                                <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2 text-[10px] text-slate-500"></i>
+                            </div>
+                            <div id="node-filter-pills" class="flex flex-wrap gap-1"></div>
+                        </div>
+
+                        <!-- Container Titik Terkelompok -->
+                        <div id="node-list" class="space-y-2 text-xs"></div>
+                    </div>
+                </div>
+
+                <!-- 2. SEKSI REKAP JALUR PER GEDUNG & TITIK POWER -->
+                <div class="bg-slate-900/90 p-3 rounded-xl border border-amber-500/40 space-y-2.5">
+                    <div class="flex items-center justify-between cursor-pointer select-none" onclick="toggleDataSection('buildings')">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-building-circle-check text-amber-400 text-sm"></i>
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-amber-400">Daftar Jalur per Gedung</h3>
+                            <span id="building-count-badge" class="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded font-bold">0 gedung</span>
+                        </div>
+                        <div class="flex items-center gap-1.5 text-slate-400">
+                            <span class="text-[10px] text-slate-500">Kabel Terhubung</span>
+                            <i id="section-icon-buildings" class="fa-solid fa-chevron-down text-xs transition-transform duration-200"></i>
+                        </div>
+                    </div>
+
+                    <div id="section-content-buildings" class="space-y-2">
+                        <p class="text-[11px] text-slate-400 leading-tight">Rekap distribusi kabel dan sumber titik power dari gedung ke gedung.</p>
+                        <div id="building-grouped-list" class="space-y-2 max-h-72 overflow-y-auto pr-1"></div>
+                    </div>
+                </div>
+
+                <!-- 3. SEKSI DAFTAR JALUR KABEL FO (GROUPED BY CORE) -->
+                <div class="bg-slate-900/90 p-3 rounded-xl border border-slate-700/80 space-y-2.5">
+                    <div class="flex items-center justify-between cursor-pointer select-none" onclick="toggleDataSection('cables')">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-route text-emerald-400 text-sm"></i>
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-white">Daftar Jalur Kabel FO</h3>
+                            <span id="cable-count-badge" class="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-bold">0 jalur</span>
+                        </div>
+                        <div class="flex items-center gap-1.5 text-slate-400">
+                            <span class="text-[10px] text-slate-500">Per Kapasitas Core</span>
+                            <i id="section-icon-cables" class="fa-solid fa-chevron-down text-xs transition-transform duration-200"></i>
+                        </div>
+                    </div>
+
+                    <div id="section-content-cables" class="space-y-2">
+                        <div class="relative">
+                            <input type="text" id="cable-search-input" placeholder="Cari nama rute kabel / gedung..." oninput="searchCableGroup(this.value)" class="w-full bg-slate-800 border border-slate-700 rounded-lg pl-7 pr-2.5 py-1 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500">
+                            <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2 text-[10px] text-slate-500"></i>
+                        </div>
+                        <div id="cable-list" class="space-y-2 text-xs max-h-80 overflow-y-auto pr-1"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 3: EXPORT / IMPORT -->
+            <div id="tab-export" class="hidden space-y-3">
+                <div class="bg-slate-900/70 p-3.5 rounded-xl border border-slate-700 space-y-2.5">
+                    <h3 class="text-xs font-bold uppercase text-blue-400">Ekspor ke Google Earth / Maps</h3>
+                    <p class="text-xs text-slate-400">Unduh format <b>.KML</b> untuk dibuka langsung di Google Earth atau diimpor ke Google My Maps.</p>
+                    <button onclick="exportKML()" class="w-full bg-blue-600 hover:bg-blue-500 text-white py-2 rounded-lg text-xs font-semibold">
+                        <i class="fa-solid fa-earth-asia mr-1"></i> Download File KML (Google Earth)
+                    </button>
+                </div>
+
+                <div class="bg-slate-900/70 p-3.5 rounded-xl border border-slate-700 space-y-2.5">
+                    <h3 class="text-xs font-bold uppercase text-emerald-400">Laporan Excel / CSV</h3>
+                    <p class="text-xs text-slate-400">Unduh daftar koordinat titik closure dan rincian panjang tarikan kabel dalam format CSV.</p>
+                    <button onclick="exportCSV()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded-lg text-xs font-semibold">
+                        <i class="fa-solid fa-file-csv mr-1"></i> Download Laporan CSV
+                    </button>
+                </div>
+
+                <div class="bg-slate-900/70 p-3.5 rounded-xl border border-slate-700 space-y-2.5">
+                    <h3 class="text-xs font-bold uppercase text-amber-400">Simpan / Muat Project (JSON)</h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="exportJSON()" class="bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg text-xs font-semibold">
+                            <i class="fa-solid fa-download mr-1"></i> Backup JSON
+                        </button>
+                        <label class="bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg text-xs font-semibold text-center cursor-pointer">
+                            <i class="fa-solid fa-upload mr-1"></i> Load JSON
+                            <input type="file" accept=".json" onchange="importJSON(event)" class="hidden">
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Footer Search Location -->
+        <div class="p-3 bg-slate-900 border-t border-slate-700">
+            <div class="flex gap-1.5">
+                <input id="search-box" type="text" placeholder="Cari nama daerah / jalan..." onkeydown="if(event.key==='Enter') searchLocation()" class="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500">
+                <button onclick="searchLocation()" class="bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-lg text-xs text-white">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Map Container -->
+    <div class="flex-1 relative">
+        <!-- Floating Map Quick Tools -->
+        <div class="absolute top-4 right-14 z-[400] flex items-center gap-2">
+            <button id="btn-toggle-snap-road" onclick="toggleSnapToRoad()" title="Otomatis tarik garis kabel mengikuti jalan raya (OSRM)" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700/80 shadow-lg backdrop-blur flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-road text-amber-400"></i> Snap Jalan: <b>OFF</b>
+            </button>
+            <button id="btn-gps-my-location" onclick="getUserLocation(true)" title="Deteksi posisi GPS saya saat ini" class="w-9 h-9 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700/80 shadow-lg backdrop-blur flex items-center justify-center text-sm transition">
+                <i class="fa-solid fa-location-crosshairs text-blue-400"></i>
+            </button>
+        </div>
+
+        <!-- Floating Route Editor Banner -->
+        <div id="route-editor-banner" class="hidden fixed top-4 left-1/2 -translate-x-1/2 z-[1000] bg-slate-900/95 border-2 border-amber-500 text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-5 backdrop-blur-md">
+            <div class="flex items-center gap-3">
+                <span class="w-3.5 h-3.5 rounded-full bg-amber-400 animate-pulse"></span>
+                <div>
+                    <div class="font-bold text-xs text-amber-300 flex items-center gap-2">
+                        <span>Edit Rute: <b id="route-editor-name" class="text-white">...</b></span>
+                        <span id="route-editor-dist" class="bg-amber-500/30 text-amber-200 px-2 py-0.5 rounded text-[11px] font-mono">0 m</span>
+                    </div>
+                    <div class="text-[11px] text-slate-300 mt-0.5">
+                        • <b>Geser Titik</b> untuk relokasi &nbsp;|&nbsp;
+                        • <span class="text-red-400 font-semibold">Klik Titik</span> untuk HAPUS titik &nbsp;|&nbsp;
+                        • <b>Klik (+)</b> untuk tambah titik
+                    </div>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 border-l border-slate-700 pl-4">
+                <button onclick="continueDrawingFromRouteEditor()" title="Sambung dan teruskan tarikan kabel dari ujung rute ini" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow flex items-center gap-1 transition">
+                    <i class="fa-solid fa-play"></i> Lanjutkan Ujung
+                </button>
+                <button onclick="finishEditingCableRoute(true)" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow flex items-center gap-1 transition">
+                    <i class="fa-solid fa-check"></i> Simpan
+                </button>
+                <button onclick="finishEditingCableRoute(false)" class="bg-slate-700 hover:bg-slate-600 text-slate-300 px-3 py-1.5 rounded-lg text-xs font-semibold transition">
+                    Batal
+                </button>
+            </div>
+        </div>
+
+        <div id="map"></div>
+    </div>
+
+    <!-- Modal Edit Data (Info & Foto) -->
+    <div id="modal-edit" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+            <div class="p-4 border-b border-slate-700 flex items-center justify-between bg-slate-850">
+                <div class="flex items-center gap-2">
+                    <span id="modal-edit-icon" class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white text-sm">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                    </span>
+                    <div>
+                        <h3 id="modal-edit-title" class="font-bold text-white text-sm">Edit Data</h3>
+                        <p id="modal-edit-subtitle" class="text-xs text-slate-400">Ubah detail deskripsi & dokumentasi</p>
+                    </div>
+                </div>
+                <button onclick="closeEditModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <div id="modal-edit-body" class="p-4 space-y-3.5 overflow-y-auto flex-1 text-xs"></div>
+            <div class="p-3 bg-slate-850 border-t border-slate-700 flex justify-end gap-2">
+                <button onclick="closeEditModal()" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs">
+                    Batal
+                </button>
+                <button id="modal-edit-save-btn" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs flex items-center gap-1.5 shadow">
+                    <i class="fa-solid fa-check"></i> Simpan Perubahan
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Lightbox (Foto Besar) -->
+    <div id="modal-lightbox" class="hidden fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-4" onclick="closeLightbox(event)">
+        <div class="relative max-w-4xl max-h-[90vh] flex flex-col items-center" onclick="event.stopPropagation()">
+            <button onclick="closeLightbox()" class="absolute -top-10 right-0 text-white/80 hover:text-white text-2xl font-bold p-1">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <img id="lightbox-img" src="" alt="Dokumentasi" class="max-h-[80vh] max-w-full rounded-xl object-contain shadow-2xl border border-white/10">
+            <p id="lightbox-caption" class="text-slate-300 text-xs mt-2 text-center"></p>
+        </div>
+    </div>
+
+    <!-- Modal OTDR Fault Locator -->
+    <div id="modal-otdr" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md shadow-2xl flex flex-col overflow-hidden">
+            <div class="p-4 border-b border-slate-700 flex items-center justify-between bg-slate-850">
+                <div class="flex items-center gap-2">
+                    <span class="w-8 h-8 rounded-lg bg-red-600 flex items-center justify-center text-white text-sm shadow">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                    </span>
+                    <div>
+                        <h3 class="font-bold text-white text-sm">OTDR Fault Locator</h3>
+                        <p class="text-xs text-slate-400">Pencari Titik Kabel Putus di Peta</p>
+                    </div>
+                </div>
+                <button onclick="closeOtdrModal()" class="text-slate-400 hover:text-white p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <div class="p-4 space-y-3.5 text-xs">
+                <input type="hidden" id="otdr-cable-id">
+                <div class="bg-slate-800/70 p-3 rounded-xl border border-slate-700">
+                    <div class="font-bold text-white text-sm" id="otdr-cable-title">Kabel FO</div>
+                    <div class="text-slate-400 text-[11px] mt-0.5" id="otdr-cable-spec">24 Core | Jarak: 1200 m</div>
+                </div>
+                <div>
+                    <label class="text-slate-300 font-semibold block mb-1">Jarak Pengukuran OTDR (Meter)</label>
+                    <div class="flex items-center gap-2">
+                        <input id="otdr-distance-input" type="number" step="1" min="0" placeholder="Misal: 750" class="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white font-mono text-sm focus:outline-none focus:border-red-500">
+                        <span class="text-slate-400 font-semibold text-xs">Meter</span>
+                    </div>
+                    <p class="text-[11px] text-slate-400 mt-1">Masukkan angka jarak putus yang tertera pada layar mesin OTDR.</p>
+                </div>
+                <div>
+                    <label class="text-slate-300 font-semibold block mb-1.5">Arah Pengukuran OTDR</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <label class="flex items-center gap-2 bg-slate-800 p-2.5 rounded-lg border border-slate-700 cursor-pointer hover:border-red-500 transition">
+                            <input type="radio" name="otdr-dir" value="start" checked class="text-red-500 focus:ring-0">
+                            <span class="text-white text-xs font-medium">Dari Pangkal Awal</span>
+                        </label>
+                        <label class="flex items-center gap-2 bg-slate-800 p-2.5 rounded-lg border border-slate-700 cursor-pointer hover:border-red-500 transition">
+                            <input type="radio" name="otdr-dir" value="end" class="text-red-500 focus:ring-0">
+                            <span class="text-white text-xs font-medium">Dari Ujung Akhir</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="bg-slate-800/50 p-2.5 rounded-lg border border-slate-700 flex items-center justify-between">
+                    <div>
+                        <div class="font-semibold text-white text-xs">Perhitungkan Cadangan / Slack</div>
+                        <div class="text-[10px] text-slate-400">Kompensasi slack gulungan kabel di tiang/HH</div>
+                    </div>
+                    <input type="checkbox" id="otdr-slack-check" checked class="w-4 h-4 rounded text-red-600 focus:ring-0 bg-slate-900 border-slate-600">
+                </div>
+            </div>
+            <div class="p-3 bg-slate-850 border-t border-slate-700 flex justify-end gap-2">
+                <button onclick="closeOtdrModal()" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs">Batal</button>
+                <button onclick="executeOtdrLocator()" class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold text-xs flex items-center gap-1.5 shadow">
+                    <i class="fa-solid fa-crosshairs"></i> Lacak Titik Putus di Peta
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Core & Tube Matrix (TIA/EIA-598) -->
+    <div id="modal-core-matrix" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+            <div class="p-4 border-b border-slate-700 flex items-center justify-between bg-slate-850">
+                <div class="flex items-center gap-2">
+                    <span class="w-8 h-8 rounded-lg bg-purple-600 flex items-center justify-center text-white text-sm shadow">
+                        <i class="fa-solid fa-palette"></i>
+                    </span>
+                    <div>
+                        <h3 id="core-matrix-title" class="font-bold text-white text-sm">Manajemen Tube & Core FO</h3>
+                        <p id="core-matrix-subtitle" class="text-xs text-slate-400">Standar 12 Warna TIA/EIA-598</p>
+                    </div>
+                </div>
+                <button onclick="closeCoreMatrixModal()" class="text-slate-400 hover:text-white p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <input type="hidden" id="core-matrix-cable-id">
+            <div id="core-matrix-container" class="p-4 space-y-4 overflow-y-auto flex-1 text-xs"></div>
+            <div class="p-3 bg-slate-850 border-t border-slate-700 flex justify-end gap-2">
+                <button onclick="closeCoreMatrixModal()" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs">Tutup</button>
+                <button onclick="saveCoreMatrixData()" class="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs flex items-center gap-1.5 shadow">
+                    <i class="fa-solid fa-floppy-disk"></i> Simpan Data Core
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Modular JS Scripts -->
+    <script src="js/vertex-editor.js"></script>
+    <script src="js/gps-exif.js"></script>
+    <script src="js/otdr-core.js"></script>
+    <script src="js/smart-gis.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

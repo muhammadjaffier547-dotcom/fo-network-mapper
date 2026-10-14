@@ -1,0 +1,13 @@
+{
+  "name": "fo-network-mapper",
+  "version": "1.0.0",
+  "description": "GIS Jalur Kabel FO & Titik Closure (Leaflet GIS)",
+  "main": "server/node/server.js",
+  "scripts": {
+    "start": "node server/node/server.js"
+  },
+  "keywords": ["gis", "fiber-optic", "leaflet", "network-mapping"],
+  "author": "",
+  "license": "MIT"
+}
+
