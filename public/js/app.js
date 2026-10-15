@@ -195,7 +195,7 @@ function compressImage(file, maxWidth = 900, quality = 0.75) {
 
 async function handleNodePhotoUpload(event) {
     if (typeof hasWritePermission === 'function' && !hasWritePermission()) {
-        alert('Akses Ditolak: Hanya SUPER ADMIN yang dapat mengunggah foto dokumentasi.');
+        alert('Akses Ditolak: Diperlukan hak akses Admin atau Super Admin untuk dapat mengunggah foto dokumentasi.');
         event.target.value = '';
         return;
     }
@@ -246,7 +246,7 @@ function removePendingNodePhoto(idx) {
 
 async function handleCablePhotoUpload(event) {
     if (typeof hasWritePermission === 'function' && !hasWritePermission()) {
-        alert('Akses Ditolak: Hanya SUPER ADMIN yang dapat mengunggah foto dokumentasi.');
+        alert('Akses Ditolak: Diperlukan hak akses Admin atau Super Admin untuk dapat mengunggah foto dokumentasi.');
         event.target.value = '';
         return;
     }
@@ -410,7 +410,7 @@ function cancelDrawingCable() {
  */
 function startCableFromNode(nodeId) {
     if (typeof hasWritePermission === 'function' && !hasWritePermission()) {
-        alert('Akses Ditolak: Hanya SUPER ADMIN yang dapat menarik jalur FO.');
+        alert('Akses Ditolak: Diperlukan hak akses Admin atau Super Admin untuk dapat menarik jalur FO.');
         return;
     }
     const node = nodes.find(n => n.id === nodeId);
@@ -449,7 +449,7 @@ function startCableFromNode(nodeId) {
  */
 function continueDrawingCable(cableId) {
     if (typeof hasWritePermission === 'function' && !hasWritePermission()) {
-        alert('Akses Ditolak: Hanya SUPER ADMIN yang dapat menyambung atau mengedit jalur.');
+        alert('Akses Ditolak: Diperlukan hak akses Admin atau Super Admin untuk dapat menyambung atau mengedit jalur.');
         return;
     }
     const cable = cables.find(c => c.id === cableId);
@@ -581,7 +581,7 @@ map.on('click', function(e) {
 // --- 4. MANAJEMEN TITIK (CLOSURE / ODP / DLL) ---
 function createNode(lat, lng, customName = null, customType = null, customNote = null, customDesc = null, customPhotos = null) {
     if (typeof hasWritePermission === 'function' && !hasWritePermission()) {
-        alert('Akses Ditolak: Hanya SUPER ADMIN yang dapat menambah titik.');
+        alert('Akses Ditolak: Diperlukan hak akses Admin atau Super Admin untuk dapat menambah titik.');
         return;
     }
     const type = customType || document.getElementById('node-type').value;
@@ -754,7 +754,7 @@ function renderNodeMarker(node) {
 
 function deleteNode(id, confirmAsk = true) {
     if (typeof hasWritePermission === 'function' && !hasWritePermission()) {
-        alert('Akses Ditolak: Hanya SUPER ADMIN yang dapat menghapus titik.');
+        alert('Akses Ditolak: Diperlukan hak akses Admin atau Super Admin untuk dapat menghapus titik.');
         return;
     }
     const node = nodes.find(n => n.id === id);
@@ -804,7 +804,7 @@ function addPointToActiveCable(latOrPt, maybeLng) {
 
 function finishDrawingCable() {
     if (typeof hasWritePermission === 'function' && !hasWritePermission()) {
-        alert('Akses Ditolak: Hanya SUPER ADMIN yang dapat membuat atau mengedit rute kabel.');
+        alert('Akses Ditolak: Diperlukan hak akses Admin atau Super Admin untuk dapat membuat atau mengedit rute kabel.');
         resetTempCable();
         return;
     }
@@ -1063,7 +1063,7 @@ function getCablePopupHtml(cable) {
 
 function deleteCable(id, confirmAsk = true) {
     if (typeof hasWritePermission === 'function' && !hasWritePermission()) {
-        alert('Akses Ditolak: Hanya SUPER ADMIN yang dapat menghapus jalur kabel.');
+        alert('Akses Ditolak: Diperlukan hak akses Admin atau Super Admin untuk dapat menghapus jalur kabel.');
         return;
     }
     const cable = cables.find(c => c.id === id);
@@ -1084,7 +1084,7 @@ function deleteCable(id, confirmAsk = true) {
 
 function connectAllClosures() {
     if (typeof hasWritePermission === 'function' && !hasWritePermission()) {
-        alert('Akses Ditolak: Hanya SUPER ADMIN yang dapat menghubungkan titik.');
+        alert('Akses Ditolak: Diperlukan hak akses Admin atau Super Admin untuk dapat menghubungkan titik.');
         return;
     }
     if (nodes.length < 2) {
@@ -1098,7 +1098,7 @@ function connectAllClosures() {
 // --- 6. MODAL EDIT DATA (TITIK & KABEL) ---
 function openEditNodeModal(id) {
     if (typeof hasWritePermission === 'function' && !hasWritePermission()) {
-        alert('Akses Ditolak: Hanya SUPER ADMIN yang dapat mengedit data titik.');
+        alert('Akses Ditolak: Diperlukan hak akses Admin atau Super Admin untuk dapat mengedit data titik.');
         return;
     }
     const node = nodes.find(n => n.id === id);
@@ -1161,7 +1161,7 @@ function openEditNodeModal(id) {
 
 function openEditCableModal(id) {
     if (typeof hasWritePermission === 'function' && !hasWritePermission()) {
-        alert('Akses Ditolak: Hanya SUPER ADMIN yang dapat mengedit data jalur kabel.');
+        alert('Akses Ditolak: Diperlukan hak akses Admin atau Super Admin untuk dapat mengedit data jalur kabel.');
         return;
     }
     const cable = cables.find(c => c.id === id);
@@ -1254,7 +1254,7 @@ function openEditCableModal(id) {
 
 async function handleEditPhotoUpload(event) {
     if (typeof hasWritePermission === 'function' && !hasWritePermission()) {
-        alert('Akses Ditolak: Hanya SUPER ADMIN yang dapat mengunggah foto.');
+        alert('Akses Ditolak: Diperlukan hak akses Admin atau Super Admin untuk dapat mengunggah foto.');
         event.target.value = '';
         return;
     }
@@ -1294,7 +1294,7 @@ function renderEditPhotos() {
 
 function removeEditPhoto(idx) {
     if (typeof hasWritePermission === 'function' && !hasWritePermission()) {
-        alert('Akses Ditolak: Hanya SUPER ADMIN yang dapat menghapus foto.');
+        alert('Akses Ditolak: Diperlukan hak akses Admin atau Super Admin untuk dapat menghapus foto.');
         return;
     }
     editingPhotos.splice(idx, 1);
@@ -1303,7 +1303,7 @@ function removeEditPhoto(idx) {
 
 function saveEditData() {
     if (typeof hasWritePermission === 'function' && !hasWritePermission()) {
-        alert('Akses Ditolak: Hanya SUPER ADMIN yang dapat menyimpan perubahan data.');
+        alert('Akses Ditolak: Diperlukan hak akses Admin atau Super Admin untuk dapat menyimpan perubahan data.');
         closeEditModal();
         return;
     }
@@ -1916,7 +1916,7 @@ function exportJSON() {
 
 function importJSON(event) {
     if (typeof hasWritePermission === 'function' && !hasWritePermission()) {
-        alert('Akses Ditolak: Hanya SUPER ADMIN yang dapat memuat project JSON.');
+        alert('Akses Ditolak: Diperlukan hak akses Admin atau Super Admin untuk dapat memuat project JSON.');
         event.target.value = '';
         return;
     }
