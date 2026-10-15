@@ -32,6 +32,9 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-1.5">
+                    <button onclick="openActivityLogModal()" title="Riwayat Log & Audit Perubahan Jaringan" class="text-xs text-amber-400 hover:text-amber-300 px-2 py-1 rounded border border-amber-900/50 hover:bg-amber-950/40 flex items-center gap-1 font-medium transition">
+                        <i class="fa-solid fa-clock-rotate-left"></i> Log
+                    </button>
                     <button onclick="openTutorialModal()" title="Panduan & Tutorial Penggunaan" class="text-xs text-blue-400 hover:text-blue-300 px-2 py-1 rounded border border-blue-900/50 hover:bg-blue-950/40 flex items-center gap-1 font-medium transition">
                         <i class="fa-solid fa-circle-question"></i> Panduan
                     </button>
@@ -407,6 +410,19 @@
                         <i class="fa-solid fa-arrows-rotate"></i> Sinkronkan Sekarang
                     </button>
                 </div>
+
+                <!-- Activity Log Audit Trail Button -->
+                <button onclick="openActivityLogModal()" class="w-full bg-slate-900/80 hover:bg-slate-850 border border-amber-500/30 text-slate-200 p-3 rounded-xl flex items-center justify-between text-xs font-semibold shadow transition">
+                    <span class="flex items-center gap-2">
+                        <span class="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/40 flex items-center justify-center">
+                            <i class="fa-solid fa-clock-rotate-left"></i>
+                        </span>
+                        <span>Log Riwayat & Audit Perubahan</span>
+                    </span>
+                    <span class="text-amber-400 text-[11px] flex items-center gap-1 font-bold">
+                        Buka Log <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                    </span>
+                </button>
 
                 <div class="bg-slate-900/70 p-3.5 rounded-xl border border-slate-700 space-y-2.5">
                     <h3 class="text-xs font-bold uppercase text-amber-400">Simpan / Muat Project Offline (JSON)</h3>
@@ -926,6 +942,70 @@
         </div>
     </div>
 
+    <!-- Modal Riwayat Log & Audit Perubahan Jaringan -->
+    <div id="modal-activity-log" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-3xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
+            <!-- Modal Header -->
+            <div class="p-3.5 sm:p-4 border-b border-slate-700 flex items-center justify-between bg-slate-850">
+                <div class="flex items-center gap-2.5">
+                    <span class="w-9 h-9 rounded-xl bg-amber-600 flex items-center justify-center text-white text-base shadow flex-shrink-0">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                    </span>
+                    <div>
+                        <h3 class="font-bold text-white text-sm">Riwayat Aktivitas & Perubahan (Audit Trail)</h3>
+                        <p class="text-[11px] text-amber-400">Catatan siapa yang menambah, mengedit, atau menghapus titik, kabel, & core</p>
+                    </div>
+                </div>
+                <button onclick="closeActivityLogModal()" class="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Subheader Bar: Search, Stats & Action Buttons -->
+            <div class="p-3 bg-slate-950/80 border-b border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs">
+                <!-- Search Box -->
+                <div class="relative w-full sm:w-72">
+                    <input type="text" id="log-search-input" placeholder="Cari teknisi, nama tiang, kabel, aksi..." oninput="onLogSearchChange(this.value)" class="w-full bg-slate-800 border border-slate-700 rounded-lg pl-8 pr-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500">
+                    <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2.5 text-[11px] text-slate-500"></i>
+                </div>
+
+                <!-- Export & Clear Buttons -->
+                <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+                    <button onclick="exportActivityLogsCSV()" title="Ekspor seluruh log ke format CSV" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition">
+                        <i class="fa-solid fa-file-csv text-emerald-400"></i>
+                        <span>Ekspor CSV</span>
+                    </button>
+                    <button onclick="clearAllActivityLogs()" title="Hapus Riwayat Log (Super Admin)" class="p-1.5 rounded-lg bg-slate-800 hover:bg-red-950/60 text-slate-400 hover:text-red-400 border border-slate-700 text-xs transition">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filter Pills Bar -->
+            <div class="px-4 py-2 bg-slate-900 border-b border-slate-800 flex items-center justify-between text-xs">
+                <div id="log-filter-pills" class="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+                    <!-- Populated by JS -->
+                </div>
+                <span id="log-total-count-badge" class="text-[11px] text-slate-400 font-mono whitespace-nowrap ml-2">0 Aktivitas</span>
+            </div>
+
+            <!-- Feed Timeline Container -->
+            <div id="activity-log-feed" class="p-3.5 space-y-2.5 overflow-y-auto flex-1 text-xs">
+                <!-- Populated by JS -->
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-3 bg-slate-850 border-t border-slate-700 flex items-center justify-between text-xs">
+                <span class="text-[11px] text-slate-400 flex items-center gap-1">
+                    <i class="fa-solid fa-shield-halved text-amber-400"></i> Log audit tersimpan otomatis di Cloud
+                </span>
+                <button onclick="closeActivityLogModal()" class="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs">
+                    Tutup
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal Panduan & Tutorial Tools -->
     <div id="modal-tutorial" class="hidden fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5">
         <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
@@ -1162,6 +1242,7 @@
     <script src="js/otdr-core.js"></script>
     <script src="js/smart-gis.js"></script>
     <script src="js/auth.js"></script>
+    <script src="js/activity-log.js"></script>
     <script src="js/cloud-sync.js"></script>
     <script src="js/app.js"></script>
 </body>

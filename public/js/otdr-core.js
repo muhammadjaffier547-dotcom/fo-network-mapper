@@ -988,6 +988,12 @@ function saveNewNodeSplice() {
 
     node.splices.push(newSplice);
 
+    if (typeof logActivity === 'function') {
+        const infoA = getCoreColorInfo(coreA);
+        const infoB = getCoreColorInfo(coreB);
+        logActivity('splice_create', `Sambung Core di ${node.name}`, `Kabel "${cableA}" (Core ${coreA} - ${infoA.name}) ➔ "${cableB}" (Core ${coreB} - ${infoB.name}) [Status: ${status}, Loss: ${lossDb || '0.02'} dB]`);
+    }
+
     // Kosongkan kolom note agar siap untuk sambungan berikutnya jika mau
     const noteInput = document.getElementById('splice-input-note');
     if (noteInput) noteInput.value = '';
@@ -1043,6 +1049,10 @@ function quickAutoSplice12() {
         }
     }
 
+    if (typeof logActivity === 'function') {
+        logActivity('splice_create', `Auto-Splice ${count} Core di ${node.name}`, `Sambung lurus 1:1 Kabel "${cableA}" (Core 1–${count}) ➔ "${cableB}"`);
+    }
+
     if (typeof saveAndRefresh === 'function') saveAndRefresh();
     renderNodeSpliceList(node);
     renderSpliceTubeAndCorePicker('a');
@@ -1064,7 +1074,12 @@ function deleteNodeSplice(nodeId, spliceId) {
 
     if (!confirm('Hapus baris sambungan core ini?')) return;
 
+    const targetSplice = node.splices.find(s => s.id === spliceId);
     node.splices = node.splices.filter(s => s.id !== spliceId);
+
+    if (typeof logActivity === 'function' && targetSplice) {
+        logActivity('splice_delete', `Hapus Sambungan Core di ${node.name}`, `Sambungan Kabel "${targetSplice.cableA}" (Core ${targetSplice.coreA}) ➔ "${targetSplice.cableB}" (Core ${targetSplice.coreB}) dihapus`);
+    }
 
     if (typeof saveAndRefresh === 'function') saveAndRefresh();
     renderNodeSpliceList(node);

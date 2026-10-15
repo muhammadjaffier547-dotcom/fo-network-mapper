@@ -60,9 +60,12 @@ async function pushDataToCloud(payload) {
         payload = {
             nodes: (typeof nodes !== 'undefined') ? nodes : (window.nodes || []),
             cables: (typeof cables !== 'undefined') ? cables : (window.cables || []),
+            activityLogs: (typeof activityLogs !== 'undefined') ? activityLogs : (window.activityLogs || []),
             updatedAt: new Date().toISOString(),
             updatedBy: (typeof getCurrentUser === 'function' && getCurrentUser()) ? getCurrentUser().name : 'Admin'
         };
+    } else if (!payload.activityLogs) {
+        payload.activityLogs = (typeof activityLogs !== 'undefined') ? activityLogs : (window.activityLogs || []);
     }
 
     renderCloudSyncPill('syncing', 'Menyimpan ke Cloud...');
@@ -160,6 +163,11 @@ async function pullDataFromCloud(isManual = false) {
                 // Perbarui array data
                 nodes = Array.isArray(cloudData.nodes) ? cloudData.nodes : [];
                 cables = Array.isArray(cloudData.cables) ? cloudData.cables : [];
+                if (Array.isArray(cloudData.activityLogs)) {
+                    activityLogs = cloudData.activityLogs;
+                    window.activityLogs = activityLogs;
+                    if (typeof renderActivityLogList === 'function') renderActivityLogList();
+                }
                 window.nodes = nodes;
                 window.cables = cables;
 
@@ -168,7 +176,8 @@ async function pullDataFromCloud(isManual = false) {
                 if (typeof renderCablePolyline === 'function') cables.forEach(renderCablePolyline);
 
                 // Perbarui localStorage cache lokal
-                localStorage.setItem('fo_mapper_data', JSON.stringify({ nodes, cables }));
+                const currentLogs = (typeof activityLogs !== 'undefined') ? activityLogs : [];
+                localStorage.setItem('fo_mapper_data', JSON.stringify({ nodes, cables, activityLogs: currentLogs }));
                 lastKnownCloudUpdatedAt = cloudData.updatedAt || new Date().toISOString();
                 localStorage.setItem('fo_mapper_updated_at', lastKnownCloudUpdatedAt);
 
@@ -271,3 +280,4 @@ if (typeof window !== 'undefined') {
     window.pushUsersToCloud = pushUsersToCloud;
     window.syncUsersWithCloud = syncUsersWithCloud;
 }
+

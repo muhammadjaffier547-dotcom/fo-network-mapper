@@ -605,6 +605,9 @@ function createNode(lat, lng, customName = null, customType = null, customNote =
 
     nodes.push(newNode);
     renderNodeMarker(newNode);
+    if (typeof logActivity === 'function') {
+        logActivity('node_create', `Tambah Titik: ${newNode.name}`, `Tipe: ${newNode.type} • Koordinat: ${newNode.lat.toFixed(5)}, ${newNode.lng.toFixed(5)}`);
+    }
     document.getElementById('node-name').value = '';
     document.getElementById('node-desc').value = '';
     pendingNodePhotos = [];
@@ -767,6 +770,9 @@ function deleteNode(id, confirmAsk = true) {
         map.removeLayer(nodeMarkers[id]);
         delete nodeMarkers[id];
     }
+    if (typeof logActivity === 'function') {
+        logActivity('node_delete', `Hapus Titik: ${node.name}`, `Tipe: ${node.type} • Koordinat: ${node.lat.toFixed(5)}, ${node.lng.toFixed(5)}`);
+    }
     saveAndRefresh();
 }
 
@@ -847,6 +853,9 @@ function finishDrawingCable() {
             cable.totalDistance = Math.round(rawDist * (1 + cable.slackPercent / 100));
 
             renderCablePolyline(cable);
+            if (typeof logActivity === 'function') {
+                logActivity('cable_update', `Sambung Rute Kabel: ${cable.name}`, `Panjang rute baru: ${cable.totalDistance}m (${cable.coreSpec || '24C'})`);
+            }
             if (typeof showToast === 'function') {
                 showToast(`✅ Jalur "${cable.name}" berhasil disambung! Total panjang baru: ${cable.totalDistance}m.`);
             }
@@ -904,6 +913,9 @@ function finishDrawingCable() {
 
     cables.push(newCable);
     renderCablePolyline(newCable);
+    if (typeof logActivity === 'function') {
+        logActivity('cable_create', `Tarik Jalur Kabel Baru: ${newCable.name}`, `Panjang: ${newCable.totalDistance}m • Kapasitas: ${newCable.coreSpec || '24C'} • Warna: ${newCable.color}`);
+    }
     document.getElementById('cable-name').value = '';
     document.getElementById('cable-desc').value = '';
     if (document.getElementById('cable-from-building')) document.getElementById('cable-from-building').value = '';
@@ -1078,6 +1090,9 @@ function deleteCable(id, confirmAsk = true) {
     if (cablePolylines[id]) {
         map.removeLayer(cablePolylines[id]);
         delete cablePolylines[id];
+    }
+    if (typeof logActivity === 'function') {
+        logActivity('cable_delete', `Hapus Jalur Kabel: ${cable.name}`, `Panjang: ${cable.totalDistance}m • Kapasitas: ${cable.coreSpec || '24C'}`);
     }
     saveAndRefresh();
 }
@@ -1316,6 +1331,9 @@ function saveEditData() {
             node.description = document.getElementById('edit-node-desc').value.trim() || '';
             node.photos = [...editingPhotos];
             renderNodeMarker(node);
+            if (typeof logActivity === 'function') {
+                logActivity('node_update', `Edit Titik: ${node.name}`, `Tipe: ${node.type} • Catatan: ${node.note}`);
+            }
         }
     } else if (currentEditingType === 'cable') {
         const cable = cables.find(c => c.id === currentEditingId);
@@ -1333,6 +1351,9 @@ function saveEditData() {
             cable.photos = [...editingPhotos];
             cable.totalDistance = Math.round(cable.rawDistance * (1 + cable.slackPercent / 100));
             renderCablePolyline(cable);
+            if (typeof logActivity === 'function') {
+                logActivity('cable_update', `Edit Data Kabel: ${cable.name}`, `Kapasitas: ${cable.coreSpec} • Total Panjang: ${cable.totalDistance}m`);
+            }
         }
     }
     saveAndRefresh();
@@ -1356,7 +1377,8 @@ function saveAndRefresh() {
         return;
     }
     const now = new Date().toISOString();
-    localStorage.setItem('fo_mapper_data', JSON.stringify({ nodes, cables }));
+    const currentLogs = (typeof activityLogs !== 'undefined') ? activityLogs : (window.activityLogs || []);
+    localStorage.setItem('fo_mapper_data', JSON.stringify({ nodes, cables, activityLogs: currentLogs }));
     localStorage.setItem('fo_mapper_updated_at', now);
     updateUI();
 
@@ -1365,6 +1387,7 @@ function saveAndRefresh() {
         pushDataToCloud({
             nodes,
             cables,
+            activityLogs: currentLogs,
             updatedAt: now,
             updatedBy: (typeof getCurrentUser === 'function' && getCurrentUser()) ? getCurrentUser().name : 'Admin'
         });
@@ -1983,6 +2006,9 @@ function clearAllData(confirmAsk = true) {
     nodes = [];
     cables = [];
     resetTempCable();
+    if (typeof logActivity === 'function') {
+        logActivity('reset', 'Reset Seluruh Database Peta FO', 'Semua titik dan rute kabel dibersihkan.');
+    }
     saveAndRefresh();
     if (typeof showToast === 'function') {
         showToast('Database peta jalur FO telah dibersihkan.');
@@ -2017,6 +2043,10 @@ function clearAllData(confirmAsk = true) {
             const parsed = JSON.parse(saved);
             nodes = parsed.nodes || [];
             cables = parsed.cables || [];
+            if (Array.isArray(parsed.activityLogs)) {
+                activityLogs = parsed.activityLogs;
+                window.activityLogs = activityLogs;
+            }
             window.nodes = nodes;
             window.cables = cables;
             nodes.forEach(renderNodeMarker);
