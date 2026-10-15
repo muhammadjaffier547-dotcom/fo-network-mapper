@@ -1355,8 +1355,20 @@ function saveAndRefresh() {
         updateUI();
         return;
     }
+    const now = new Date().toISOString();
     localStorage.setItem('fo_mapper_data', JSON.stringify({ nodes, cables }));
+    localStorage.setItem('fo_mapper_updated_at', now);
     updateUI();
+
+    // Otomatis sinkronisasi ke Cloud Database real-time
+    if (typeof pushDataToCloud === 'function') {
+        pushDataToCloud({
+            nodes,
+            cables,
+            updatedAt: now,
+            updatedBy: (typeof getCurrentUser === 'function' && getCurrentUser()) ? getCurrentUser().name : 'Admin'
+        });
+    }
 
     // Auto-sync ke server jika online (divalidasi di sisi server)
     if (typeof currentAuthToken !== 'undefined' && currentAuthToken) {
@@ -2043,6 +2055,11 @@ function clearAllData(confirmAsk = true) {
             }
         })
         .catch(() => {});
+
+    // Inisialisasi Cloud Sync Otomatis Real-Time Antar-Device
+    if (typeof initCloudSync === 'function') {
+        initCloudSync();
+    }
 })();
 
 // --- 8. PANDUAN & TUTORIAL TOOLS MODAL ---

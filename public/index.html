@@ -390,8 +390,26 @@
                     </button>
                 </div>
 
+                <!-- Cloud Sync Panel -->
+                <div class="bg-slate-900/70 p-3.5 rounded-xl border border-indigo-500/30 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-xs font-bold uppercase text-indigo-400 flex items-center gap-1.5">
+                            <i class="fa-solid fa-cloud-arrow-up"></i> Cloud Sync Real-Time
+                        </h3>
+                        <span class="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/30 font-semibold flex items-center gap-1">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Otomatis
+                        </span>
+                    </div>
+                    <p class="text-[11px] text-slate-400 leading-relaxed">
+                        Data otomatis tersimpan ke Cloud setiap kali Anda menambah/mengubah titik atau kabel, dan langsung tersinkron ke semua HP & Laptop lain.
+                    </p>
+                    <button onclick="triggerManualCloudSync()" class="w-full bg-indigo-600/80 hover:bg-indigo-600 text-white py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow transition">
+                        <i class="fa-solid fa-arrows-rotate"></i> Sinkronkan Sekarang
+                    </button>
+                </div>
+
                 <div class="bg-slate-900/70 p-3.5 rounded-xl border border-slate-700 space-y-2.5">
-                    <h3 class="text-xs font-bold uppercase text-amber-400">Simpan / Muat Project (JSON)</h3>
+                    <h3 class="text-xs font-bold uppercase text-amber-400">Simpan / Muat Project Offline (JSON)</h3>
                     <div class="grid grid-cols-2 gap-2">
                         <button onclick="exportJSON()" class="bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg text-xs font-semibold">
                             <i class="fa-solid fa-download mr-1"></i> Backup JSON
@@ -426,6 +444,7 @@
                 <span class="hidden sm:inline">Panduan</span>
             </button>
             <div id="map-auth-pill"></div>
+            <div id="cloud-sync-pill-container"></div>
             <button id="btn-toggle-snap-road" onclick="toggleSnapToRoad()" title="Otomatis tarik garis kabel mengikuti jalan raya (OSRM)" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700/80 shadow-lg backdrop-blur flex items-center gap-1.5 transition">
                 <i class="fa-solid fa-road text-amber-400"></i> Snap Jalan: <b>OFF</b>
             </button>
@@ -1143,6 +1162,7 @@
     <script src="js/otdr-core.js"></script>
     <script src="js/smart-gis.js"></script>
     <script src="js/auth.js"></script>
+    <script src="js/cloud-sync.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>
