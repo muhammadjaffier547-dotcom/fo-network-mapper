@@ -597,7 +597,7 @@
 
     <!-- Modal Tabel Sambungan Core di Joint Closure / ODP (Splicing Tray) -->
     <div id="modal-node-splicing" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
-        <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-3xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-4xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
             <!-- Modal Header -->
             <div class="p-3.5 sm:p-4 border-b border-slate-700 flex items-center justify-between bg-slate-850">
                 <div class="flex items-center gap-2.5">
@@ -653,82 +653,63 @@
                     <button onclick="toggleSpliceInputForm(false)" class="text-slate-400 hover:text-white text-xs">Tutup Form <i class="fa-solid fa-chevron-up ml-0.5"></i></button>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
                     <!-- SISI A (Kabel Asal / Inbound) -->
-                    <div class="bg-slate-900 p-2.5 rounded-xl border border-blue-500/30 space-y-2">
+                    <div class="bg-slate-900 p-3 rounded-xl border border-blue-500/30 space-y-2.5">
                         <div class="text-[11px] font-bold text-blue-400 flex items-center justify-between">
-                            <span>🔵 SISI A (Kabel Masuk)</span>
-                            <span class="text-[10px] text-slate-400">Arah POP / Sumber</span>
+                            <span class="flex items-center gap-1.5"><i class="fa-solid fa-arrow-right-to-bracket"></i> SISI A (Kabel Masuk)</span>
+                            <span class="text-[10px] text-slate-400 font-normal">Arah POP / Sumber</span>
                         </div>
                         <div>
-                            <label class="text-[10px] text-slate-400 block mb-0.5">Nama Kabel Masuk</label>
-                            <input id="splice-input-cable-a" list="splice-cable-suggestions" type="text" placeholder="Pilih / ketik nama kabel A..." class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500">
+                            <label class="text-[10px] text-slate-400 block mb-0.5 font-semibold">Nama Kabel Masuk</label>
+                            <input id="splice-input-cable-a" list="splice-cable-suggestions" type="text" oninput="onSpliceCableInputChange('a')" placeholder="Pilih / ketik nama kabel A..." class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500 font-medium">
                         </div>
                         <div>
-                            <label class="text-[10px] text-slate-400 block mb-0.5">Nomor Core (Ketik nomor core apa saja)</label>
+                            <div class="flex items-center justify-between mb-0.5">
+                                <label class="text-[10px] text-slate-400 font-semibold">Nomor Core Terpilih</label>
+                                <span class="text-[10px] text-blue-400 font-medium">Pilih Tube lalu Core di bawah:</span>
+                            </div>
                             <div class="flex items-center gap-2">
-                                <input id="splice-input-core-a" type="number" min="1" max="288" value="1" oninput="updateSplicePreviewColors()" class="w-20 bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono font-bold focus:outline-none focus:border-blue-500">
-                                <div id="splice-preview-color-a" class="flex-1 h-[32px] rounded-lg border border-slate-700 flex items-center gap-2 px-2.5 bg-slate-800 text-xs font-semibold text-white">
+                                <input id="splice-input-core-a" type="number" min="1" max="288" value="1" oninput="onSpliceCoreInputType('a')" class="w-20 bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono font-bold focus:outline-none focus:border-blue-500 text-center">
+                                <div id="splice-preview-color-a" class="flex-1 h-[34px] rounded-lg border border-slate-700 flex items-center gap-2 px-2.5 bg-slate-800 text-xs font-semibold text-white">
                                     <span class="w-3.5 h-3.5 rounded-full border shadow-sm"></span>
                                     <span>Core 1 • Biru</span>
                                 </div>
                             </div>
-                            <div class="flex items-center gap-1 pt-1.5 overflow-x-auto text-[10px]">
-                                <span class="text-slate-400 text-[10px] whitespace-nowrap">Pilih:</span>
-                                <button type="button" onclick="setQuickCore('a', 1)" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-300 border border-slate-700">1</button>
-                                <button type="button" onclick="setQuickCore('a', 2)" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-300 border border-slate-700">2</button>
-                                <button type="button" onclick="setQuickCore('a', 3)" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-300 border border-slate-700">3</button>
-                                <button type="button" onclick="setQuickCore('a', 4)" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-300 border border-slate-700">4</button>
-                                <button type="button" onclick="setQuickCore('a', 5)" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-300 border border-slate-700">5</button>
-                                <button type="button" onclick="setQuickCore('a', 6)" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-300 border border-slate-700">6</button>
-                                <span class="text-slate-600">|</span>
-                                <button type="button" onclick="setQuickCore('a', 7)" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-300 border border-slate-700">7</button>
-                                <button type="button" onclick="setQuickCore('a', 8)" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-300 border border-slate-700">8</button>
-                                <button type="button" onclick="setQuickCore('a', 12)" class="px-2 py-0.5 rounded bg-indigo-900/50 hover:bg-blue-600 hover:text-white text-blue-300 border border-indigo-500/50 font-bold">12</button>
-                                <button type="button" onclick="setQuickCore('a', 24)" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-300 border border-slate-700">24</button>
-                            </div>
                         </div>
+
+                        <!-- Dynamic Tube & Core Visual Selector for Side A -->
+                        <div id="splice-tube-core-picker-a"></div>
                     </div>
 
                     <!-- SISI B (Kabel Tujuan / Outbound) -->
-                    <div class="bg-slate-900 p-2.5 rounded-xl border border-emerald-500/30 space-y-2">
+                    <div class="bg-slate-900 p-3 rounded-xl border border-emerald-500/30 space-y-2.5">
                         <div class="text-[11px] font-bold text-emerald-400 flex items-center justify-between">
-                            <span>🟢 SISI B (Kabel Keluar)</span>
-                            <span class="text-[10px] text-slate-400">Arah Distribusi / ODP</span>
+                            <span class="flex items-center gap-1.5"><i class="fa-solid fa-arrow-right-from-bracket"></i> SISI B (Kabel Keluar)</span>
+                            <span class="text-[10px] text-slate-400 font-normal">Arah Distribusi / ODP</span>
                         </div>
                         <div>
-                            <label class="text-[10px] text-slate-400 block mb-0.5">Nama Kabel Keluar</label>
-                            <input id="splice-input-cable-b" list="splice-cable-suggestions" type="text" placeholder="Pilih / ketik nama kabel B..." class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500">
+                            <label class="text-[10px] text-slate-400 block mb-0.5 font-semibold">Nama Kabel Keluar</label>
+                            <input id="splice-input-cable-b" list="splice-cable-suggestions" type="text" oninput="onSpliceCableInputChange('b')" placeholder="Pilih / ketik nama kabel B..." class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 font-medium">
                         </div>
                         <div>
-                            <label class="text-[10px] text-slate-400 block mb-0.5">Nomor Core (Ketik nomor core apa saja)</label>
+                            <div class="flex items-center justify-between mb-0.5">
+                                <label class="text-[10px] text-slate-400 font-semibold">Nomor Core Terpilih</label>
+                                <button type="button" onclick="syncCoreBWithA()" title="Samakan nomor core Sisi B dengan Sisi A" class="text-[10px] text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1">
+                                    <i class="fa-solid fa-arrows-rotate text-[9px]"></i> Samakan dg Sisi A
+                                </button>
+                            </div>
                             <div class="flex items-center gap-2">
-                                <input id="splice-input-core-b" type="number" min="1" max="288" value="1" oninput="updateSplicePreviewColors()" class="w-20 bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono font-bold focus:outline-none focus:border-emerald-500">
-                                <div id="splice-preview-color-b" class="flex-1 h-[32px] rounded-lg border border-slate-700 flex items-center gap-2 px-2.5 bg-slate-800 text-xs font-semibold text-white">
+                                <input id="splice-input-core-b" type="number" min="1" max="288" value="1" oninput="onSpliceCoreInputType('b')" class="w-20 bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono font-bold focus:outline-none focus:border-emerald-500 text-center">
+                                <div id="splice-preview-color-b" class="flex-1 h-[34px] rounded-lg border border-slate-700 flex items-center gap-2 px-2.5 bg-slate-800 text-xs font-semibold text-white">
                                     <span class="w-3.5 h-3.5 rounded-full border shadow-sm"></span>
                                     <span>Core 1 • Biru</span>
                                 </div>
                             </div>
-                            <div class="flex items-center justify-between gap-1 pt-1.5 overflow-x-auto text-[10px]">
-                                <div class="flex items-center gap-1">
-                                    <span class="text-slate-400 text-[10px] whitespace-nowrap">Pilih:</span>
-                                    <button type="button" onclick="setQuickCore('b', 1)" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-300 border border-slate-700">1</button>
-                                    <button type="button" onclick="setQuickCore('b', 2)" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-300 border border-slate-700">2</button>
-                                    <button type="button" onclick="setQuickCore('b', 3)" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-300 border border-slate-700">3</button>
-                                    <button type="button" onclick="setQuickCore('b', 4)" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-300 border border-slate-700">4</button>
-                                    <button type="button" onclick="setQuickCore('b', 5)" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-300 border border-slate-700">5</button>
-                                    <button type="button" onclick="setQuickCore('b', 6)" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-300 border border-slate-700">6</button>
-                                    <span class="text-slate-600">|</span>
-                                    <button type="button" onclick="setQuickCore('b', 7)" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-300 border border-slate-700">7</button>
-                                    <button type="button" onclick="setQuickCore('b', 8)" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-300 border border-slate-700">8</button>
-                                    <button type="button" onclick="setQuickCore('b', 12)" class="px-2 py-0.5 rounded bg-emerald-900/50 hover:bg-emerald-600 hover:text-white text-emerald-300 border border-emerald-500/50 font-bold">12</button>
-                                    <button type="button" onclick="setQuickCore('b', 24)" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-300 border border-slate-700">24</button>
-                                </div>
-                                <button type="button" onclick="syncCoreBWithA()" title="Samakan nomor core Sisi B dengan Sisi A" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700 flex items-center gap-1 font-semibold whitespace-nowrap">
-                                    <i class="fa-solid fa-arrows-rotate text-[9px]"></i> Samakan dg Sisi A
-                                </button>
-                            </div>
                         </div>
+
+                        <!-- Dynamic Tube & Core Visual Selector for Side B -->
+                        <div id="splice-tube-core-picker-b"></div>
                     </div>
                 </div>
 

@@ -327,9 +327,59 @@ let spliceSearchQuery = '';
 let currentCoresPerTube = 6;
 try {
     const savedCpt = localStorage.getItem('fo_cores_per_tube');
-    if (savedCpt) currentCoresPerTube = parseInt(savedCpt) || 6;
+    if (savedCpt === '12' || savedCpt === '6') {
+        currentCoresPerTube = parseInt(savedCpt);
+    } else {
+        currentCoresPerTube = 6;
+    }
 } catch (e) {
     currentCoresPerTube = 6;
+}
+
+let spliceActiveTubeA = 1;
+let spliceActiveTubeB = 1;
+let spliceCapacityA = 24;
+let spliceCapacityB = 24;
+
+function getCableTotalCores(cableName) {
+    if (!cableName) return 24;
+    const cList = (typeof cables !== 'undefined' && Array.isArray(cables)) ? cables : (window.cables || []);
+    const cable = cList.find(c => c.name && c.name.toLowerCase().trim() === cableName.toLowerCase().trim());
+    if (cable && cable.coreSpec) {
+        return parseCoreCount(cable.coreSpec);
+    }
+    return 24;
+}
+
+function getUsedCoreInfo(nodeId, cableName, coreNum, side) {
+    const nList = (typeof nodes !== 'undefined' && Array.isArray(nodes)) ? nodes : (window.nodes || []);
+    const node = nList.find(n => n.id === nodeId);
+    if (!node || !Array.isArray(node.splices) || !cableName) return null;
+
+    const cName = cableName.toLowerCase().trim();
+    const cNum = parseInt(coreNum);
+
+    for (const s of node.splices) {
+        if (side === 'a' && s.cableA && s.cableA.toLowerCase().trim() === cName && parseInt(s.coreA) === cNum) {
+            return {
+                spliceId: s.id,
+                partnerCable: s.cableB || 'Kabel Keluar',
+                partnerCore: s.coreB,
+                status: s.status,
+                note: s.note
+            };
+        }
+        if (side === 'b' && s.cableB && s.cableB.toLowerCase().trim() === cName && parseInt(s.coreB) === cNum) {
+            return {
+                spliceId: s.id,
+                partnerCable: s.cableA || 'Kabel Masuk',
+                partnerCore: s.coreA,
+                status: s.status,
+                note: s.note
+            };
+        }
+    }
+    return null;
 }
 
 function setCoresPerTube(val) {
@@ -351,6 +401,9 @@ function setCoresPerTube(val) {
     }
 
     updateSplicePreviewColors();
+    renderSpliceTubeAndCorePicker('a');
+    renderSpliceTubeAndCorePicker('b');
+
     const nList = (typeof nodes !== 'undefined' && Array.isArray(nodes)) ? nodes : (window.nodes || []);
     const node = nList.find(n => n.id === currentSpliceNodeId);
     if (node) renderNodeSpliceList(node);
@@ -411,24 +464,221 @@ function updateSplicePreviewColors() {
     }
 }
 
-function setQuickCore(side, coreNum) {
-    const input = document.getElementById(side === 'a' ? 'splice-input-core-a' : 'splice-input-core-b');
-    if (input) {
-        input.value = coreNum;
-        updateSplicePreviewColors();
+function onSpliceCableInputChange(side) {
+    const isA = (side === 'a');
+    const input = document.getElementById(isA ? 'splice-input-cable-a' : 'splice-input-cable-b');
+    const cableName = (input?.value || '').trim();
+    const total = getCableTotalCores(cableName);
+    if (isA) spliceCapacityA = total;
+    else spliceCapacityB = total;
+    renderSpliceTubeAndCorePicker(side);
+}
+
+function onSpliceCapacityChange(side, cap) {
+    const capacity = parseInt(cap) || 24;
+    const cpt = currentCoresPerTube || 6;
+    if (side === 'a') {
+        spliceCapacityA = capacity;
+        const maxTube = Math.max(1, Math.ceil(capacity / cpt));
+        if (spliceActiveTubeA > maxTube) spliceActiveTubeA = 1;
+    } else {
+        spliceCapacityB = capacity;
+        const maxTube = Math.max(1, Math.ceil(capacity / cpt));
+        if (spliceActiveTubeB > maxTube) spliceActiveTubeB = 1;
     }
+    renderSpliceTubeAndCorePicker(side);
+}
+
+function selectSpliceTube(side, tubeNum) {
+    if (side === 'a') spliceActiveTubeA = tubeNum;
+    else spliceActiveTubeB = tubeNum;
+    renderSpliceTubeAndCorePicker(side);
+}
+
+function selectSpliceCore(side, coreNum) {
+    const isA = (side === 'a');
+    const coreInput = document.getElementById(isA ? 'splice-input-core-a' : 'splice-input-core-b');
+    if (coreInput) {
+        coreInput.value = coreNum;
+    }
+    updateSplicePreviewColors();
+    renderSpliceTubeAndCorePicker(side);
+}
+
+function onSpliceCoreInputType(side) {
+    const isA = (side === 'a');
+    const coreInput = document.getElementById(isA ? 'splice-input-core-a' : 'splice-input-core-b');
+    const val = Math.max(1, parseInt(coreInput?.value) || 1);
+    const cpt = currentCoresPerTube || 6;
+    const targetTube = Math.floor((val - 1) / cpt) + 1;
+    if (isA) spliceActiveTubeA = targetTube;
+    else spliceActiveTubeB = targetTube;
+    updateSplicePreviewColors();
+    renderSpliceTubeAndCorePicker(side);
 }
 
 function syncCoreBWithA() {
-    const coreA = document.getElementById('splice-input-core-a')?.value || 1;
+    const coreA = parseInt(document.getElementById('splice-input-core-a')?.value) || 1;
     const inputB = document.getElementById('splice-input-core-b');
     if (inputB) {
         inputB.value = coreA;
+        const cpt = currentCoresPerTube || 6;
+        spliceActiveTubeB = Math.floor((coreA - 1) / cpt) + 1;
         updateSplicePreviewColors();
+        renderSpliceTubeAndCorePicker('b');
         if (typeof showToast === 'function') {
             showToast(`Nomor core Sisi B disamakan ke Core ${coreA}`);
         }
     }
+}
+
+function renderSpliceTubeAndCorePicker(side) {
+    const isA = (side === 'a');
+    const cableInput = document.getElementById(isA ? 'splice-input-cable-a' : 'splice-input-cable-b');
+    const coreInput = document.getElementById(isA ? 'splice-input-core-a' : 'splice-input-core-b');
+    const container = document.getElementById(isA ? 'splice-tube-core-picker-a' : 'splice-tube-core-picker-b');
+    if (!container) return;
+
+    const cableName = (cableInput?.value || '').trim();
+    const capacity = isA ? spliceCapacityA : spliceCapacityB;
+    const activeTube = isA ? spliceActiveTubeA : spliceActiveTubeB;
+    const cpt = currentCoresPerTube || 6;
+    const numTubes = Math.max(1, Math.ceil(capacity / cpt));
+    const selectedCore = parseInt(coreInput?.value) || 1;
+
+    // Hitung total terpakai di kabel ini pada node ini
+    let usedCount = 0;
+    for (let c = 1; c <= capacity; c++) {
+        if (getUsedCoreInfo(currentSpliceNodeId, cableName, c, side)) usedCount++;
+    }
+
+    let html = `
+        <div class="space-y-2 pt-1 border-t border-slate-800">
+            <!-- Header Ringkasan & Pilihan Kapasitas -->
+            <div class="flex items-center justify-between text-[11px] text-slate-400 bg-slate-850/80 p-2 rounded-lg border border-slate-800">
+                <span class="flex items-center gap-1.5 font-medium">
+                    <i class="fa-solid fa-chart-pie text-indigo-400"></i>
+                    <span>Status: <b class="text-amber-300 font-mono">${usedCount}</b> dari <b class="text-white font-mono">${capacity} Core</b> terpakai (<b class="text-emerald-400 font-mono">${Math.max(0, capacity - usedCount)} kosong</b>)</span>
+                </span>
+                <div class="flex items-center gap-1">
+                    <span class="text-[10px] text-slate-400">Kapasitas:</span>
+                    <select onchange="onSpliceCapacityChange('${side}', this.value)" class="bg-slate-800 border border-slate-700 text-slate-200 text-[10px] rounded px-1.5 py-0.5 focus:outline-none focus:border-indigo-500 font-semibold cursor-pointer">
+                        <option value="6" ${capacity === 6 ? 'selected' : ''}>6 Core</option>
+                        <option value="12" ${capacity === 12 ? 'selected' : ''}>12 Core</option>
+                        <option value="24" ${capacity === 24 ? 'selected' : ''}>24 Core</option>
+                        <option value="48" ${capacity === 48 ? 'selected' : ''}>48 Core</option>
+                        <option value="96" ${capacity === 96 ? 'selected' : ''}>96 Core</option>
+                        <option value="144" ${capacity === 144 ? 'selected' : ''}>144 Core</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- TUBE TABS (STEP 1: BUKA TUBE DULU) -->
+            <div>
+                <div class="text-[10px] text-slate-400 font-semibold mb-1 flex items-center justify-between">
+                    <span class="flex items-center gap-1 text-slate-300">
+                        <span class="w-4 h-4 rounded-full bg-slate-700 flex items-center justify-center text-[10px] text-white">1</span>
+                        <span>PILIH TUBE (Tabung Kabel):</span>
+                    </span>
+                    <span class="text-[10px] text-indigo-400 font-normal">Klik tube untuk melihat core di dalamnya</span>
+                </div>
+                <div class="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px]">
+    `;
+
+    for (let t = 1; t <= numTubes; t++) {
+        const tubeColor = TIA598_COLORS[(t - 1) % 12] || TIA598_COLORS[0];
+        const isActive = (t === activeTube);
+
+        // Cek berapa core terpakai di tube ini
+        let tubeUsed = 0;
+        const startC = (t - 1) * cpt + 1;
+        const endC = Math.min(t * cpt, capacity);
+        const tubeCoreCount = Math.max(0, endC - startC + 1);
+        for (let c = startC; c <= endC; c++) {
+            if (getUsedCoreInfo(currentSpliceNodeId, cableName, c, side)) tubeUsed++;
+        }
+
+        const isFull = (tubeUsed >= tubeCoreCount && tubeCoreCount > 0);
+
+        html += `
+            <button type="button" onclick="selectSpliceTube('${side}', ${t})" 
+                    class="px-2.5 py-1.5 rounded-lg border flex items-center gap-1.5 font-semibold transition whitespace-nowrap text-xs shadow-sm ${
+                        isActive 
+                        ? (isA ? 'bg-blue-600/30 border-blue-500 text-white ring-1 ring-blue-500' : 'bg-emerald-600/30 border-emerald-500 text-white ring-1 ring-emerald-500')
+                        : 'bg-slate-800/90 border-slate-750 text-slate-300 hover:bg-slate-750 hover:text-white'
+                    }">
+                <span class="w-3.5 h-3.5 rounded-full border shadow-sm flex-shrink-0" style="background:${tubeColor.hex}; border-color:${tubeColor.border}"></span>
+                <span>Tube ${t} (${tubeColor.name})</span>
+                <span class="text-[9px] px-1.5 py-0.2 rounded font-mono ${isFull ? 'bg-red-500/20 text-red-300 border border-red-500/30' : (tubeUsed > 0 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-slate-700 text-slate-400')}">
+                    ${tubeUsed}/${tubeCoreCount}
+                </span>
+            </button>
+        `;
+    }
+
+    html += `
+                </div>
+            </div>
+
+            <!-- CORE BUTTONS (STEP 2: PILIH CORE DI DALAM TUBE INI) -->
+            <div>
+                <div class="text-[10px] text-slate-400 font-semibold mb-1 flex items-center justify-between">
+                    <span class="flex items-center gap-1 text-slate-300">
+                        <span class="w-4 h-4 rounded-full bg-slate-700 flex items-center justify-center text-[10px] text-white">2</span>
+                        <span>PILIH CORE DI TUBE ${activeTube}:</span>
+                    </span>
+                    <span class="text-[10px] text-slate-500">Klik core yang ingin disambung</span>
+                </div>
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+    `;
+
+    const startCore = (activeTube - 1) * cpt + 1;
+    const endCore = Math.min(activeTube * cpt, capacity);
+
+    for (let c = startCore; c <= endCore; c++) {
+        const info = getCoreColorInfo(c);
+        const isSelected = (c === selectedCore);
+        const usedInfo = getUsedCoreInfo(currentSpliceNodeId, cableName, c, side);
+
+        html += `
+            <button type="button" onclick="selectSpliceCore('${side}', ${c})"
+                    class="p-2 rounded-lg border flex items-center justify-between gap-1 text-left transition ${
+                        isSelected 
+                        ? (isA ? 'bg-blue-600/30 border-blue-500 text-white ring-2 ring-blue-500' : 'bg-emerald-600/30 border-emerald-500 text-white ring-2 ring-emerald-500')
+                        : (usedInfo ? 'bg-slate-900/90 border-slate-800 text-slate-300 hover:border-slate-700' : 'bg-slate-800/80 border-slate-700 text-white hover:border-slate-500')
+                    }">
+                <div class="flex items-center gap-2 min-w-0">
+                    <span class="w-6 h-6 rounded-md flex items-center justify-center font-bold text-xs shadow-sm flex-shrink-0" 
+                          style="background:${info.hex}; color:${info.text}; border: 1.5px solid ${info.border}">
+                        ${c}
+                    </span>
+                    <div class="truncate leading-tight">
+                        <div class="text-[11px] font-bold truncate">${info.name}</div>
+                        <div class="text-[10px] text-slate-400 truncate">Core ${c}</div>
+                    </div>
+                </div>
+                <div class="flex-shrink-0">
+                    ${usedInfo ? `
+                        <span title="Sudah disambung ke ${escapeHtml(usedInfo.partnerCable)} (Core ${usedInfo.partnerCore})" class="text-[9px] px-1.5 py-0.5 rounded font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-0.5">
+                            <i class="fa-solid fa-link text-[8px]"></i> Terpakai
+                        </span>
+                    ` : `
+                        <span class="text-[9px] px-1.5 py-0.5 rounded font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                            🟢 Kosong
+                        </span>
+                    `}
+                </div>
+            </button>
+        `;
+    }
+
+    html += `
+                </div>
+            </div>
+        </div>
+    `;
+
+    container.innerHTML = html;
 }
 
 function openNodeSplicingModal(nodeId) {
@@ -496,7 +746,6 @@ function toggleSpliceInputForm(forceState) {
         drawer.classList.toggle('hidden');
     }
     if (!drawer.classList.contains('hidden')) {
-        updateSplicePreviewColors();
         const inputA = document.getElementById('splice-input-cable-a');
         const inputB = document.getElementById('splice-input-cable-b');
         const cList = (typeof cables !== 'undefined' && Array.isArray(cables)) ? cables : (window.cables || []);
@@ -507,6 +756,17 @@ function toggleSpliceInputForm(forceState) {
             if (cList.length > 1) inputB.value = cList[1].name;
             else if (cList.length === 1) inputB.value = cList[0].name;
         }
+
+        if (inputA && inputA.value) {
+            spliceCapacityA = getCableTotalCores(inputA.value);
+        }
+        if (inputB && inputB.value) {
+            spliceCapacityB = getCableTotalCores(inputB.value);
+        }
+
+        updateSplicePreviewColors();
+        renderSpliceTubeAndCorePicker('a');
+        renderSpliceTubeAndCorePicker('b');
     }
 }
 
@@ -734,6 +994,8 @@ function saveNewNodeSplice() {
 
     if (typeof saveAndRefresh === 'function') saveAndRefresh();
     renderNodeSpliceList(node);
+    renderSpliceTubeAndCorePicker('a');
+    renderSpliceTubeAndCorePicker('b');
 
     if (typeof showToast === 'function') {
         const infoA = getCoreColorInfo(coreA);
@@ -783,6 +1045,8 @@ function quickAutoSplice12() {
 
     if (typeof saveAndRefresh === 'function') saveAndRefresh();
     renderNodeSpliceList(node);
+    renderSpliceTubeAndCorePicker('a');
+    renderSpliceTubeAndCorePicker('b');
 
     if (typeof showToast === 'function') {
         showToast(`⚡ ${count} Sambungan Core (1:1) berhasil dibuat otomatis!`);
@@ -804,6 +1068,8 @@ function deleteNodeSplice(nodeId, spliceId) {
 
     if (typeof saveAndRefresh === 'function') saveAndRefresh();
     renderNodeSpliceList(node);
+    renderSpliceTubeAndCorePicker('a');
+    renderSpliceTubeAndCorePicker('b');
 
     if (typeof showToast === 'function') {
         showToast('Sambungan core telah dihapus.');
@@ -854,5 +1120,11 @@ if (typeof window !== 'undefined') {
     window.exportNodeSplicesCSV = exportNodeSplicesCSV;
     window.setSpliceFilter = setSpliceFilter;
     window.onSpliceSearchChange = onSpliceSearchChange;
+    window.renderSpliceTubeAndCorePicker = renderSpliceTubeAndCorePicker;
+    window.selectSpliceTube = selectSpliceTube;
+    window.selectSpliceCore = selectSpliceCore;
+    window.onSpliceCableInputChange = onSpliceCableInputChange;
+    window.onSpliceCapacityChange = onSpliceCapacityChange;
+    window.onSpliceCoreInputType = onSpliceCoreInputType;
 }
 
