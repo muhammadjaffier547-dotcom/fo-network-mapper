@@ -624,15 +624,11 @@
                     <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2.5 text-[11px] text-slate-500"></i>
                 </div>
 
-                <!-- Action Buttons: Toggle Form & Quick 12 Core -->
+                <!-- Action Buttons: Toggle Form & Export CSV -->
                 <div class="flex items-center gap-1.5 w-full sm:w-auto justify-end">
                     <button id="btn-toggle-splice-form" onclick="toggleSpliceInputForm()" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs flex items-center gap-1.5 shadow transition">
                         <i class="fa-solid fa-plus"></i>
-                        <span>Tambah Sambungan</span>
-                    </button>
-                    <button id="btn-quick-12-splice" onclick="quickAutoSplice12()" title="Otomatis sambungkan Core 1–12 Kabel A ke Core 1–12 Kabel B" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 font-semibold text-xs flex items-center gap-1.5 transition">
-                        <i class="fa-solid fa-bolt text-amber-400"></i>
-                        <span class="hidden sm:inline">Auto 12C (1:1)</span>
+                        <span>Tambah Sambungan Core</span>
                     </button>
                     <button onclick="exportNodeSplicesCSV()" title="Ekspor data sambungan ke format CSV (Excel)" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs transition">
                         <i class="fa-solid fa-file-csv text-emerald-400"></i>
@@ -660,17 +656,25 @@
                             <label class="text-[10px] text-slate-400 block mb-0.5">Nama Kabel Masuk</label>
                             <input id="splice-input-cable-a" list="splice-cable-suggestions" type="text" placeholder="Pilih / ketik nama kabel A..." class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500">
                         </div>
-                        <div class="grid grid-cols-2 gap-2">
-                            <div>
-                                <label class="text-[10px] text-slate-400 block mb-0.5">Nomor Core (1–288)</label>
-                                <input id="splice-input-core-a" type="number" min="1" max="288" value="1" oninput="updateSplicePreviewColors()" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-blue-500">
-                            </div>
-                            <div>
-                                <label class="text-[10px] text-slate-400 block mb-0.5">Warna Core</label>
-                                <div id="splice-preview-color-a" class="h-[30px] rounded-lg border border-slate-700 flex items-center gap-1.5 px-2 bg-slate-800 text-[11px] font-semibold text-white">
-                                    <span class="w-3 h-3 rounded-full border shadow-sm"></span>
+                        <div>
+                            <label class="text-[10px] text-slate-400 block mb-0.5">Nomor Core (Ketik nomor core apa saja)</label>
+                            <div class="flex items-center gap-2">
+                                <input id="splice-input-core-a" type="number" min="1" max="288" value="1" oninput="updateSplicePreviewColors()" class="w-20 bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono font-bold focus:outline-none focus:border-blue-500">
+                                <div id="splice-preview-color-a" class="flex-1 h-[32px] rounded-lg border border-slate-700 flex items-center gap-2 px-2.5 bg-slate-800 text-xs font-semibold text-white">
+                                    <span class="w-3.5 h-3.5 rounded-full border shadow-sm"></span>
                                     <span>Core 1 (Biru)</span>
                                 </div>
+                            </div>
+                            <div class="flex items-center gap-1 pt-1.5 overflow-x-auto text-[10px]">
+                                <span class="text-slate-400 text-[10px] whitespace-nowrap">Pilih:</span>
+                                <button type="button" onclick="setQuickCore('a', 1)" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-300 border border-slate-700">1</button>
+                                <button type="button" onclick="setQuickCore('a', 2)" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-300 border border-slate-700">2</button>
+                                <button type="button" onclick="setQuickCore('a', 3)" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-300 border border-slate-700">3</button>
+                                <button type="button" onclick="setQuickCore('a', 4)" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-300 border border-slate-700">4</button>
+                                <button type="button" onclick="setQuickCore('a', 6)" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-300 border border-slate-700">6</button>
+                                <button type="button" onclick="setQuickCore('a', 8)" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-300 border border-slate-700">8</button>
+                                <button type="button" onclick="setQuickCore('a', 12)" class="px-2 py-0.5 rounded bg-indigo-900/50 hover:bg-blue-600 hover:text-white text-blue-300 border border-indigo-500/50 font-bold">12</button>
+                                <button type="button" onclick="setQuickCore('a', 24)" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-300 border border-slate-700">24</button>
                             </div>
                         </div>
                     </div>
@@ -685,24 +689,49 @@
                             <label class="text-[10px] text-slate-400 block mb-0.5">Nama Kabel Keluar</label>
                             <input id="splice-input-cable-b" list="splice-cable-suggestions" type="text" placeholder="Pilih / ketik nama kabel B..." class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500">
                         </div>
-                        <div class="grid grid-cols-2 gap-2">
-                            <div>
-                                <label class="text-[10px] text-slate-400 block mb-0.5">Nomor Core (1–288)</label>
-                                <input id="splice-input-core-b" type="number" min="1" max="288" value="1" oninput="updateSplicePreviewColors()" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-emerald-500">
-                            </div>
-                            <div>
-                                <label class="text-[10px] text-slate-400 block mb-0.5">Warna Core</label>
-                                <div id="splice-preview-color-b" class="h-[30px] rounded-lg border border-slate-700 flex items-center gap-1.5 px-2 bg-slate-800 text-[11px] font-semibold text-white">
-                                    <span class="w-3 h-3 rounded-full border shadow-sm"></span>
+                        <div>
+                            <label class="text-[10px] text-slate-400 block mb-0.5">Nomor Core (Ketik nomor core apa saja)</label>
+                            <div class="flex items-center gap-2">
+                                <input id="splice-input-core-b" type="number" min="1" max="288" value="1" oninput="updateSplicePreviewColors()" class="w-20 bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono font-bold focus:outline-none focus:border-emerald-500">
+                                <div id="splice-preview-color-b" class="flex-1 h-[32px] rounded-lg border border-slate-700 flex items-center gap-2 px-2.5 bg-slate-800 text-xs font-semibold text-white">
+                                    <span class="w-3.5 h-3.5 rounded-full border shadow-sm"></span>
                                     <span>Core 1 (Biru)</span>
                                 </div>
+                            </div>
+                            <div class="flex items-center justify-between gap-1 pt-1.5 overflow-x-auto text-[10px]">
+                                <div class="flex items-center gap-1">
+                                    <span class="text-slate-400 text-[10px] whitespace-nowrap">Pilih:</span>
+                                    <button type="button" onclick="setQuickCore('b', 1)" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-300 border border-slate-700">1</button>
+                                    <button type="button" onclick="setQuickCore('b', 2)" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-300 border border-slate-700">2</button>
+                                    <button type="button" onclick="setQuickCore('b', 3)" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-300 border border-slate-700">3</button>
+                                    <button type="button" onclick="setQuickCore('b', 4)" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-300 border border-slate-700">4</button>
+                                    <button type="button" onclick="setQuickCore('b', 6)" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-300 border border-slate-700">6</button>
+                                    <button type="button" onclick="setQuickCore('b', 8)" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-300 border border-slate-700">8</button>
+                                    <button type="button" onclick="setQuickCore('b', 12)" class="px-2 py-0.5 rounded bg-emerald-900/50 hover:bg-emerald-600 hover:text-white text-emerald-300 border border-emerald-500/50 font-bold">12</button>
+                                    <button type="button" onclick="setQuickCore('b', 24)" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-300 border border-slate-700">24</button>
+                                </div>
+                                <button type="button" onclick="syncCoreBWithA()" title="Samakan nomor core Sisi B dengan Sisi A" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700 flex items-center gap-1 font-semibold whitespace-nowrap">
+                                    <i class="fa-solid fa-arrows-rotate text-[9px]"></i> Samakan dg Sisi A
+                                </button>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Parameter Sambungan: Status, Redaman Loss dB, Catatan Tray -->
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                <!-- DESKRIPSI / CATATAN CORE (NOTE) -->
+                <div class="space-y-1 bg-slate-900 p-2.5 rounded-xl border border-amber-500/30">
+                    <label class="text-xs font-semibold text-amber-300 flex items-center justify-between">
+                        <span class="flex items-center gap-1.5">
+                            <i class="fa-solid fa-note-sticky text-amber-400"></i>
+                            <span>Deskripsi / Catatan Sambungan (Note)</span>
+                        </span>
+                        <span class="text-[10px] text-slate-400 font-normal">Sangat berguna untuk catatan teknisi di lapangan</span>
+                    </label>
+                    <input id="splice-input-note" type="text" placeholder="Misal: Core 12 dipakai untuk Pelanggan Pak Budi / Arah ODP-02 / Server Gedung B..." class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition">
+                </div>
+
+                <!-- Parameter Sambungan: Status & Redaman Loss dB -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
                     <div>
                         <label class="text-[10px] text-slate-400 block mb-0.5">Kondisi / Status Sambungan</label>
                         <select id="splice-input-status" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500">
@@ -713,19 +742,15 @@
                         </select>
                     </div>
                     <div>
-                        <label class="text-[10px] text-slate-400 block mb-0.5">Redaman Sambungan (dB)</label>
+                        <label class="text-[10px] text-slate-400 block mb-0.5">Redaman Sambungan (dB) <span class="text-slate-500">- Opsional</span></label>
                         <input id="splice-input-loss" type="number" step="0.01" value="0.02" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-indigo-500">
-                    </div>
-                    <div>
-                        <label class="text-[10px] text-slate-400 block mb-0.5">Posisi Tray / Keterangan</label>
-                        <input id="splice-input-note" type="text" placeholder="Misal: Tray 1 Slot 1 / Splitter ODP" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500">
                     </div>
                 </div>
 
-                <div class="flex justify-end gap-2 pt-1">
-                    <button type="button" onclick="toggleSpliceInputForm(false)" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs">Batal</button>
-                    <button type="button" onclick="saveNewNodeSplice()" class="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow transition">
-                        <i class="fa-solid fa-check"></i> Simpan Sambungan
+                <div class="flex items-center justify-between pt-1">
+                    <button type="button" onclick="toggleSpliceInputForm(false)" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs">Selesai / Tutup Form</button>
+                    <button type="button" onclick="saveNewNodeSplice()" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow transition">
+                        <i class="fa-solid fa-check"></i> Simpan Sambungan Core
                     </button>
                 </div>
             </div>
@@ -750,7 +775,7 @@
             <div class="p-3 bg-slate-850 border-t border-slate-700 flex items-center justify-between">
                 <span class="text-[11px] text-slate-400 flex items-center gap-1">
                     <i class="fa-solid fa-circle-info text-indigo-400"></i>
-                    <span>Standar TIA/EIA-598: 12 Warna Core per Tube</span>
+                    <span>Standar 12 Warna Core Fiber Optik</span>
                 </span>
                 <button onclick="closeNodeSplicingModal()" class="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition">
                     Tutup

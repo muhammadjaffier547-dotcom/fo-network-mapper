@@ -346,15 +346,35 @@ function updateSplicePreviewColors() {
         const infoA = getCoreColorInfo(coreAInput.value);
         previewA.innerHTML = `
             <span class="w-3.5 h-3.5 rounded-full border shadow-sm flex-shrink-0" style="background:${infoA.hex}; border-color:${infoA.border}"></span>
-            <span class="truncate">Core ${infoA.coreNum} • ${infoA.name} (T${infoA.tubeNum})</span>
+            <span class="truncate font-semibold text-white">Core ${infoA.coreNum} (${infoA.name})</span>
         `;
     }
     if (coreBInput && previewB) {
         const infoB = getCoreColorInfo(coreBInput.value);
         previewB.innerHTML = `
             <span class="w-3.5 h-3.5 rounded-full border shadow-sm flex-shrink-0" style="background:${infoB.hex}; border-color:${infoB.border}"></span>
-            <span class="truncate">Core ${infoB.coreNum} • ${infoB.name} (T${infoB.tubeNum})</span>
+            <span class="truncate font-semibold text-white">Core ${infoB.coreNum} (${infoB.name})</span>
         `;
+    }
+}
+
+function setQuickCore(side, coreNum) {
+    const input = document.getElementById(side === 'a' ? 'splice-input-core-a' : 'splice-input-core-b');
+    if (input) {
+        input.value = coreNum;
+        updateSplicePreviewColors();
+    }
+}
+
+function syncCoreBWithA() {
+    const coreA = document.getElementById('splice-input-core-a')?.value || 1;
+    const inputB = document.getElementById('splice-input-core-b');
+    if (inputB) {
+        inputB.value = coreA;
+        updateSplicePreviewColors();
+        if (typeof showToast === 'function') {
+            showToast(`Nomor core Sisi B disamakan ke Core ${coreA}`);
+        }
     }
 }
 
@@ -523,11 +543,8 @@ function renderNodeSpliceList(node) {
                     </div>
                     ${canWrite ? `
                         <div class="flex flex-wrap items-center justify-center gap-2 pt-1">
-                            <button onclick="toggleSpliceInputForm(true)" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold shadow flex items-center gap-1.5 transition">
-                                <i class="fa-solid fa-plus"></i> Tambah Sambungan Manual
-                            </button>
-                            <button onclick="quickAutoSplice12()" class="bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition">
-                                <i class="fa-solid fa-bolt text-amber-400"></i> Auto Sambung 12 Core (1:1)
+                            <button onclick="toggleSpliceInputForm(true)" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-xs font-bold shadow flex items-center gap-1.5 transition">
+                                <i class="fa-solid fa-plus"></i> Tambah Sambungan Core
                             </button>
                         </div>
                     ` : ''}
@@ -556,56 +573,64 @@ function renderNodeSpliceList(node) {
         const badge = statusBadges[s.status] || statusBadges['aktif'];
 
         return `
-            <div class="bg-slate-850 hover:bg-slate-800/90 border border-slate-750 hover:border-slate-700 rounded-xl p-2.5 sm:p-3 flex flex-col sm:flex-row items-center justify-between gap-2.5 shadow transition">
-                <!-- SISI A (Kabel Masuk) -->
-                <div class="flex items-center gap-2.5 min-w-0 flex-1 w-full sm:w-auto">
-                    <div class="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shadow flex-shrink-0" 
-                         style="background:${infoA.hex}; color:${infoA.text}; border: 1.5px solid ${infoA.border}">
-                        ${infoA.coreNum}
-                    </div>
-                    <div class="truncate">
-                        <div class="font-bold text-white text-xs truncate flex items-center gap-1.5">
-                            <span>Core ${infoA.coreNum} (${infoA.name})</span>
-                            <span class="text-[9px] bg-slate-800 text-slate-300 px-1 py-0.2 rounded border border-slate-700">Tube ${infoA.tubeNum}</span>
+            <div class="bg-slate-850 hover:bg-slate-800/90 border border-slate-750 hover:border-slate-700 rounded-xl p-3 shadow transition flex flex-col gap-2">
+                <div class="flex flex-col sm:flex-row items-center justify-between gap-2.5">
+                    <!-- SISI A (Kabel Masuk) -->
+                    <div class="flex items-center gap-2.5 min-w-0 flex-1 w-full sm:w-auto">
+                        <div class="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shadow flex-shrink-0" 
+                             style="background:${infoA.hex}; color:${infoA.text}; border: 1.5px solid ${infoA.border}">
+                            ${infoA.coreNum}
                         </div>
-                        <div class="text-[11px] text-blue-400 font-medium truncate" title="${escapeHtml(s.cableA || 'Kabel A')}">
-                            <i class="fa-solid fa-arrow-right-to-bracket text-[9px] mr-0.5"></i> ${escapeHtml(s.cableA || 'Kabel A')}
+                        <div class="truncate">
+                            <div class="font-bold text-white text-xs truncate">
+                                Core ${infoA.coreNum} (${infoA.name})
+                            </div>
+                            <div class="text-[11px] text-blue-400 font-medium truncate" title="${escapeHtml(s.cableA || 'Kabel A')}">
+                                <i class="fa-solid fa-arrow-right-to-bracket text-[9px] mr-0.5"></i> ${escapeHtml(s.cableA || 'Kabel A')}
+                            </div>
                         </div>
                     </div>
+
+                    <!-- Center: Status & Parameter Loss -->
+                    <div class="flex flex-row sm:flex-col items-center justify-between sm:justify-center px-2 py-1 sm:py-0 w-full sm:w-auto border-y sm:border-y-0 sm:border-x border-slate-750 my-0.5 sm:my-0 flex-shrink-0 gap-1">
+                        <div>${badge}</div>
+                        ${s.lossDb ? `<div class="text-[10px] text-slate-400 font-mono">${s.lossDb} dB</div>` : ''}
+                    </div>
+
+                    <!-- SISI B (Kabel Keluar) -->
+                    <div class="flex items-center gap-2.5 min-w-0 flex-1 w-full sm:w-auto justify-end text-right">
+                        <div class="truncate">
+                            <div class="font-bold text-white text-xs truncate">
+                                Core ${infoB.coreNum} (${infoB.name})
+                            </div>
+                            <div class="text-[11px] text-emerald-400 font-medium truncate" title="${escapeHtml(s.cableB || 'Kabel B')}">
+                                ${escapeHtml(s.cableB || 'Kabel B')} <i class="fa-solid fa-arrow-right-from-bracket text-[9px] ml-0.5"></i>
+                            </div>
+                        </div>
+                        <div class="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shadow flex-shrink-0" 
+                             style="background:${infoB.hex}; color:${infoB.text}; border: 1.5px solid ${infoB.border}">
+                            ${infoB.coreNum}
+                        </div>
+                    </div>
+
+                    <!-- Delete Action (Admin / Super Admin Only) -->
+                    ${canWrite ? `
+                        <div class="flex items-center justify-end w-full sm:w-auto pt-1 sm:pt-0 sm:pl-1 border-t sm:border-t-0 sm:border-l border-slate-750 flex-shrink-0">
+                            <button onclick="deleteNodeSplice('${node.id}', '${s.id}')" title="Hapus sambungan ini" class="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-slate-750 transition text-xs">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </div>
+                    ` : ''}
                 </div>
 
-                <!-- Center: Link Arrow & Parameter Loss -->
-                <div class="flex flex-row sm:flex-col items-center justify-between sm:justify-center px-2 py-1 sm:py-0 w-full sm:w-auto border-y sm:border-y-0 sm:border-x border-slate-750 my-0.5 sm:my-0 flex-shrink-0">
-                    <div>${badge}</div>
-                    <div class="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1 font-mono">
-                        ${s.lossDb ? `<span>${s.lossDb} dB</span>` : ''}
-                        ${s.note ? `<span class="text-slate-300 italic">• ${escapeHtml(s.note)}</span>` : ''}
-                    </div>
-                </div>
-
-                <!-- SISI B (Kabel Keluar) -->
-                <div class="flex items-center gap-2.5 min-w-0 flex-1 w-full sm:w-auto justify-end text-right">
-                    <div class="truncate">
-                        <div class="font-bold text-white text-xs truncate flex items-center justify-end gap-1.5">
-                            <span class="text-[9px] bg-slate-800 text-slate-300 px-1 py-0.2 rounded border border-slate-700">Tube ${infoB.tubeNum}</span>
-                            <span>Core ${infoB.coreNum} (${infoB.name})</span>
+                <!-- Prominent Deskripsi / Catatan Lapangan -->
+                ${s.note ? `
+                    <div class="pt-2 border-t border-slate-800 flex items-start gap-2 text-xs bg-slate-900/60 px-2.5 py-1.5 rounded-lg border border-amber-500/20">
+                        <i class="fa-solid fa-note-sticky text-amber-400 text-xs mt-0.5 flex-shrink-0"></i>
+                        <div class="flex-1 min-w-0">
+                            <span class="text-[10px] text-amber-300 font-bold uppercase tracking-wider block">Catatan / Note:</span>
+                            <span class="text-slate-100 font-medium break-words">${escapeHtml(s.note)}</span>
                         </div>
-                        <div class="text-[11px] text-emerald-400 font-medium truncate" title="${escapeHtml(s.cableB || 'Kabel B')}">
-                            ${escapeHtml(s.cableB || 'Kabel B')} <i class="fa-solid fa-arrow-right-from-bracket text-[9px] ml-0.5"></i>
-                        </div>
-                    </div>
-                    <div class="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shadow flex-shrink-0" 
-                         style="background:${infoB.hex}; color:${infoB.text}; border: 1.5px solid ${infoB.border}">
-                        ${infoB.coreNum}
-                    </div>
-                </div>
-
-                <!-- Delete Action (Admin / Super Admin Only) -->
-                ${canWrite ? `
-                    <div class="flex items-center justify-end w-full sm:w-auto pt-1 sm:pt-0 sm:pl-1 border-t sm:border-t-0 sm:border-l border-slate-750 flex-shrink-0">
-                        <button onclick="deleteNodeSplice('${node.id}', '${s.id}')" title="Hapus sambungan ini" class="p-1 rounded text-slate-500 hover:text-red-400 hover:bg-slate-750 transition text-xs">
-                            <i class="fa-solid fa-trash"></i>
-                        </button>
                     </div>
                 ` : ''}
             </div>
@@ -622,9 +647,9 @@ function saveNewNodeSplice() {
     const node = nList.find(n => n.id === currentSpliceNodeId);
     if (!node) return;
 
-    const cableA = (document.getElementById('splice-input-cable-a')?.value || '').trim() || 'Kabel Utama (A)';
+    const cableA = (document.getElementById('splice-input-cable-a')?.value || '').trim() || 'Kabel Masuk';
     const coreA = parseInt(document.getElementById('splice-input-core-a')?.value) || 1;
-    const cableB = (document.getElementById('splice-input-cable-b')?.value || '').trim() || 'Kabel Distribusi (B)';
+    const cableB = (document.getElementById('splice-input-cable-b')?.value || '').trim() || 'Kabel Keluar';
     const coreB = parseInt(document.getElementById('splice-input-core-b')?.value) || 1;
     const status = document.getElementById('splice-input-status')?.value || 'aktif';
     const lossDb = (document.getElementById('splice-input-loss')?.value || '').trim();
@@ -639,24 +664,24 @@ function saveNewNodeSplice() {
         cableB,
         coreB,
         status,
-        lossDb,
+        lossDb: lossDb || '0.02',
         note,
         updatedAt: new Date().toISOString()
     };
 
     node.splices.push(newSplice);
 
-    const coreAInput = document.getElementById('splice-input-core-a');
-    const coreBInput = document.getElementById('splice-input-core-b');
-    if (coreAInput) coreAInput.value = coreA + 1;
-    if (coreBInput) coreBInput.value = coreB + 1;
-    updateSplicePreviewColors();
+    // Kosongkan kolom note agar siap untuk sambungan berikutnya jika mau
+    const noteInput = document.getElementById('splice-input-note');
+    if (noteInput) noteInput.value = '';
 
     if (typeof saveAndRefresh === 'function') saveAndRefresh();
     renderNodeSpliceList(node);
 
     if (typeof showToast === 'function') {
-        showToast(`✅ Sambungan Core ${coreA} ➔ Core ${coreB} berhasil disimpan!`);
+        const infoA = getCoreColorInfo(coreA);
+        const infoB = getCoreColorInfo(coreB);
+        showToast(`✅ Sambungan Core ${coreA} (${infoA.name}) ➔ Core ${coreB} (${infoB.name}) disimpan!`);
     }
 }
 
@@ -735,11 +760,12 @@ function exportNodeSplicesCSV() {
         return;
     }
 
-    let csvContent = 'No,Titik,Kabel_A,Core_A,Warna_A,Tube_A,Status,Loss_dB,Kabel_B,Core_B,Warna_B,Tube_B,Keterangan\n';
+    let csvContent = 'No,Titik,Kabel_A,Core_A,Warna_A,Status,Loss_dB,Kabel_B,Core_B,Warna_B,Catatan_Note\n';
     node.splices.forEach((s, idx) => {
         const infoA = getCoreColorInfo(s.coreA);
         const infoB = getCoreColorInfo(s.coreB);
-        csvContent += `${idx + 1},"${node.name}","${s.cableA}",${s.coreA},"${infoA.name}",${infoA.tubeNum},"${s.status}","${s.lossDb || '0.02'}","${s.cableB}",${s.coreB},"${infoB.name}",${infoB.tubeNum},"${s.note || ''}"\n`;
+        const cleanNote = (s.note || '').replace(/"/g, '""');
+        csvContent += `${idx + 1},"${node.name}","${s.cableA}",${s.coreA},"${infoA.name}","${s.status}","${s.lossDb || '0.02'}","${s.cableB}",${s.coreB},"${infoB.name}","${cleanNote}"\n`;
     });
 
     const filename = `Splicing_${(node.name || 'Titik').replace(/[^a-zA-Z0-9_-]/g, '_')}.csv`;
@@ -761,6 +787,8 @@ if (typeof window !== 'undefined') {
     window.closeNodeSplicingModal = closeNodeSplicingModal;
     window.toggleSpliceInputForm = toggleSpliceInputForm;
     window.updateSplicePreviewColors = updateSplicePreviewColors;
+    window.setQuickCore = setQuickCore;
+    window.syncCoreBWithA = syncCoreBWithA;
     window.saveNewNodeSplice = saveNewNodeSplice;
     window.quickAutoSplice12 = quickAutoSplice12;
     window.deleteNodeSplice = deleteNodeSplice;
