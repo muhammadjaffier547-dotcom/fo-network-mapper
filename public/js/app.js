@@ -26,9 +26,19 @@ const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png
     attribution: '&copy; OpenStreetMap'
 });
 
+// Batas Wilayah Negara Kesatuan Republik Indonesia (Sabang sampai Merauke)
+const INDONESIA_BOUNDS = L.latLngBounds(
+    [-11.5, 94.5], // Barat Daya (Rote / Samudera Hindia)
+    [6.5, 141.5]   // Timur Laut (Miangas / Merauke Papua)
+);
+
 const map = L.map('map', {
     center: [-6.200000, 106.816666], // Default Jakarta Pusat
     zoom: 14,
+    minZoom: 5,                      // Batasi zoom out terjauh: sebatas wilayah Indonesia
+    maxZoom: 20,                     // Detail hingga level atap gedung/tiang
+    maxBounds: INDONESIA_BOUNDS,     // Mengunci peta agar tidak bisa digeser ke luar negeri
+    maxBoundsViscosity: 1.0,         // Rigid/kaku (1.0) memantul kembali jika digeser keluar
     layers: [googleHybrid]
 });
 
@@ -1704,7 +1714,7 @@ async function searchLocation() {
     const q = document.getElementById('search-box').value.trim();
     if (!q) return;
     try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}`);
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&countrycodes=id&q=${encodeURIComponent(q)}`);
         const data = await res.json();
         if (data && data.length > 0) {
             map.setView([parseFloat(data[0].lat), parseFloat(data[0].lon)], 16);
