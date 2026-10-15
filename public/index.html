@@ -595,6 +595,169 @@
         </div>
     </div>
 
+    <!-- Modal Tabel Sambungan Core di Joint Closure / ODP (Splicing Tray) -->
+    <div id="modal-node-splicing" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-3xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
+            <!-- Modal Header -->
+            <div class="p-3.5 sm:p-4 border-b border-slate-700 flex items-center justify-between bg-slate-850">
+                <div class="flex items-center gap-2.5">
+                    <span class="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white text-base shadow flex-shrink-0">
+                        <i class="fa-solid fa-arrows-split-up-and-left"></i>
+                    </span>
+                    <div class="overflow-hidden">
+                        <h3 id="splice-modal-node-name" class="font-bold text-white text-sm truncate">Tabel Sambungan Core (Splicing Tray)</h3>
+                        <p id="splice-modal-node-subtitle" class="text-[11px] text-indigo-400">Titik Sambungan Fiber Optic</p>
+                    </div>
+                </div>
+                <button onclick="closeNodeSplicingModal()" class="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <input type="hidden" id="splice-current-node-id">
+
+            <!-- Subheader Bar: Search, Stats & Action Buttons -->
+            <div class="p-3 bg-slate-950/80 border-b border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs">
+                <!-- Search Box inside Modal -->
+                <div class="relative w-full sm:w-64">
+                    <input type="text" id="splice-search-input" placeholder="Cari kabel, nomor core, atau keterangan..." oninput="onSpliceSearchChange(this.value)" class="w-full bg-slate-800 border border-slate-700 rounded-lg pl-8 pr-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+                    <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2.5 text-[11px] text-slate-500"></i>
+                </div>
+
+                <!-- Action Buttons: Toggle Form & Quick 12 Core -->
+                <div class="flex items-center gap-1.5 w-full sm:w-auto justify-end">
+                    <button id="btn-toggle-splice-form" onclick="toggleSpliceInputForm()" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs flex items-center gap-1.5 shadow transition">
+                        <i class="fa-solid fa-plus"></i>
+                        <span>Tambah Sambungan</span>
+                    </button>
+                    <button id="btn-quick-12-splice" onclick="quickAutoSplice12()" title="Otomatis sambungkan Core 1–12 Kabel A ke Core 1–12 Kabel B" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 font-semibold text-xs flex items-center gap-1.5 transition">
+                        <i class="fa-solid fa-bolt text-amber-400"></i>
+                        <span class="hidden sm:inline">Auto 12C (1:1)</span>
+                    </button>
+                    <button onclick="exportNodeSplicesCSV()" title="Ekspor data sambungan ke format CSV (Excel)" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs transition">
+                        <i class="fa-solid fa-file-csv text-emerald-400"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Form Tambah Sambungan (Toggleable Drawer) -->
+            <div id="splice-input-form-drawer" class="hidden p-3.5 bg-slate-850/95 border-b border-indigo-500/30 text-xs space-y-3">
+                <div class="flex items-center justify-between">
+                    <span class="font-bold text-white flex items-center gap-1.5 text-xs">
+                        <i class="fa-solid fa-link text-indigo-400"></i> Form Sambung Core Baru
+                    </span>
+                    <button onclick="toggleSpliceInputForm(false)" class="text-slate-400 hover:text-white text-xs">Tutup Form <i class="fa-solid fa-chevron-up ml-0.5"></i></button>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <!-- SISI A (Kabel Asal / Inbound) -->
+                    <div class="bg-slate-900 p-2.5 rounded-xl border border-blue-500/30 space-y-2">
+                        <div class="text-[11px] font-bold text-blue-400 flex items-center justify-between">
+                            <span>🔵 SISI A (Kabel Masuk)</span>
+                            <span class="text-[10px] text-slate-400">Arah POP / Sumber</span>
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-slate-400 block mb-0.5">Nama Kabel Masuk</label>
+                            <input id="splice-input-cable-a" list="splice-cable-suggestions" type="text" placeholder="Pilih / ketik nama kabel A..." class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500">
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-[10px] text-slate-400 block mb-0.5">Nomor Core (1–288)</label>
+                                <input id="splice-input-core-a" type="number" min="1" max="288" value="1" oninput="updateSplicePreviewColors()" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label class="text-[10px] text-slate-400 block mb-0.5">Warna Core</label>
+                                <div id="splice-preview-color-a" class="h-[30px] rounded-lg border border-slate-700 flex items-center gap-1.5 px-2 bg-slate-800 text-[11px] font-semibold text-white">
+                                    <span class="w-3 h-3 rounded-full border shadow-sm"></span>
+                                    <span>Core 1 (Biru)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SISI B (Kabel Tujuan / Outbound) -->
+                    <div class="bg-slate-900 p-2.5 rounded-xl border border-emerald-500/30 space-y-2">
+                        <div class="text-[11px] font-bold text-emerald-400 flex items-center justify-between">
+                            <span>🟢 SISI B (Kabel Keluar)</span>
+                            <span class="text-[10px] text-slate-400">Arah Distribusi / ODP</span>
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-slate-400 block mb-0.5">Nama Kabel Keluar</label>
+                            <input id="splice-input-cable-b" list="splice-cable-suggestions" type="text" placeholder="Pilih / ketik nama kabel B..." class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500">
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-[10px] text-slate-400 block mb-0.5">Nomor Core (1–288)</label>
+                                <input id="splice-input-core-b" type="number" min="1" max="288" value="1" oninput="updateSplicePreviewColors()" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-emerald-500">
+                            </div>
+                            <div>
+                                <label class="text-[10px] text-slate-400 block mb-0.5">Warna Core</label>
+                                <div id="splice-preview-color-b" class="h-[30px] rounded-lg border border-slate-700 flex items-center gap-1.5 px-2 bg-slate-800 text-[11px] font-semibold text-white">
+                                    <span class="w-3 h-3 rounded-full border shadow-sm"></span>
+                                    <span>Core 1 (Biru)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Parameter Sambungan: Status, Redaman Loss dB, Catatan Tray -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                    <div>
+                        <label class="text-[10px] text-slate-400 block mb-0.5">Kondisi / Status Sambungan</label>
+                        <select id="splice-input-status" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500">
+                            <option value="aktif">🟢 Normal (Aktif Terhubung)</option>
+                            <option value="cadangan">🔵 Spare / Cadangan</option>
+                            <option value="loss">🟠 High Loss / Redaman Tinggi</option>
+                            <option value="putus">🔴 Putus / Core Rusak</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-slate-400 block mb-0.5">Redaman Sambungan (dB)</label>
+                        <input id="splice-input-loss" type="number" step="0.01" value="0.02" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-slate-400 block mb-0.5">Posisi Tray / Keterangan</label>
+                        <input id="splice-input-note" type="text" placeholder="Misal: Tray 1 Slot 1 / Splitter ODP" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500">
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-2 pt-1">
+                    <button type="button" onclick="toggleSpliceInputForm(false)" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs">Batal</button>
+                    <button type="button" onclick="saveNewNodeSplice()" class="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow transition">
+                        <i class="fa-solid fa-check"></i> Simpan Sambungan
+                    </button>
+                </div>
+            </div>
+
+            <!-- Datalist untuk Autocomplete Kabel -->
+            <datalist id="splice-cable-suggestions"></datalist>
+
+            <!-- Filter Status Pills Bar -->
+            <div class="px-4 py-2 bg-slate-900 border-b border-slate-800 flex items-center justify-between text-xs">
+                <div id="splice-filter-pills" class="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+                    <!-- Populated by JS -->
+                </div>
+                <span id="splice-total-badge" class="text-[11px] text-slate-400 font-mono">0 sambungan</span>
+            </div>
+
+            <!-- List Sambungan (Cards Container) -->
+            <div id="splice-list-container" class="p-3.5 space-y-2 overflow-y-auto flex-1 text-xs">
+                <!-- Cards will be populated here -->
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-3 bg-slate-850 border-t border-slate-700 flex items-center justify-between">
+                <span class="text-[11px] text-slate-400 flex items-center gap-1">
+                    <i class="fa-solid fa-circle-info text-indigo-400"></i>
+                    <span>Standar TIA/EIA-598: 12 Warna Core per Tube</span>
+                </span>
+                <button onclick="closeNodeSplicingModal()" class="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition">
+                    Tutup
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- Modal Login Akun -->
     <div id="modal-auth-login" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
@@ -791,10 +954,11 @@
                     <div class="bg-slate-800/70 p-3.5 rounded-xl border border-slate-700 space-y-2">
                         <div class="flex items-center gap-2">
                             <span class="w-6 h-6 rounded-full bg-amber-600 text-white font-bold flex items-center justify-center text-xs">3</span>
-                            <h4 class="font-bold text-white text-xs">Klik Kabel di Peta untuk Fitur Lanjutan</h4>
+                            <h4 class="font-bold text-white text-xs">Klik Kabel & Titik di Peta untuk Fitur Lanjutan</h4>
                         </div>
                         <p class="text-slate-300 text-[11px] leading-relaxed pl-8">
-                            Klik garis kabel mana saja di peta untuk membuka menu teknis lengkap:
+                            Klik garis kabel atau titik closure di peta untuk membuka menu teknis lengkap:
+                            <br>• <b>Tabel Splicing Core:</b> Klik titik Joint Closure / ODP untuk mencatat sambungan core masuk ➔ keluar.
                             <br>• <b>Sambung Jalur:</b> Lanjutkan tarikan rute dari ujung terakhir.
                             <br>• <b>Edit Belokan & Relokasi:</b> Menggeser dan meluruskan titik sudut rute jika ada perubahan tiang.
                             <br>• <b>Lacak Putus (OTDR Fault):</b> Masukkan meter hasil ukur OTDR lapangan untuk mencari titik putus di peta.
@@ -852,6 +1016,14 @@
                                 <span>OTDR Fault Locator</span>
                             </div>
                             <p class="text-[11px] text-slate-300">Ketik hasil ukur meter dari alat OTDR, sistem langsung menancapkan marker titik putus kabel di peta.</p>
+                        </div>
+
+                        <div class="bg-slate-800/70 p-2.5 rounded-xl border border-indigo-500/50 space-y-1">
+                            <div class="font-bold text-white flex items-center gap-1.5 text-xs">
+                                <span class="w-6 h-6 rounded bg-indigo-600 flex items-center justify-center text-white"><i class="fa-solid fa-arrows-split-up-and-left text-[10px]"></i></span>
+                                <span>Tabel Splicing Core (Closure/ODP)</span>
+                            </div>
+                            <p class="text-[11px] text-slate-300">Catat pasangan sambungan kabel masuk ke kabel keluar (Core 1 Kabel A ke Core 1 Kabel B) lengkap dengan status aktif, redaman loss dB, dan ekspor CSV.</p>
                         </div>
 
                         <div class="bg-slate-800/70 p-2.5 rounded-xl border border-slate-700 space-y-1">

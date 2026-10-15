@@ -318,3 +318,454 @@ function saveCoreMatrixData() {
     showToast(`✅ Data 12 Core & Tube untuk kabel "${cable.name}" berhasil disimpan!`);
 }
 
+// --- 3. FITUR MANAJEMEN SAMBUNGAN CORE DI JOINT CLOSURE & ODP (SPLICING MATRIX) ---
+
+let currentSpliceNodeId = null;
+let spliceSearchQuery = '';
+let spliceFilterStatus = 'ALL';
+
+function getCoreColorInfo(coreNum) {
+    const num = Math.max(1, parseInt(coreNum) || 1);
+    const colorIdx = ((num - 1) % 12);
+    const tubeNum = Math.floor((num - 1) / 12) + 1;
+    const color = TIA598_COLORS[colorIdx] || TIA598_COLORS[0];
+    return {
+        ...color,
+        coreNum: num,
+        tubeNum: tubeNum
+    };
+}
+
+function updateSplicePreviewColors() {
+    const coreAInput = document.getElementById('splice-input-core-a');
+    const coreBInput = document.getElementById('splice-input-core-b');
+    const previewA = document.getElementById('splice-preview-color-a');
+    const previewB = document.getElementById('splice-preview-color-b');
+
+    if (coreAInput && previewA) {
+        const infoA = getCoreColorInfo(coreAInput.value);
+        previewA.innerHTML = `
+            <span class="w-3.5 h-3.5 rounded-full border shadow-sm flex-shrink-0" style="background:${infoA.hex}; border-color:${infoA.border}"></span>
+            <span class="truncate">Core ${infoA.coreNum} • ${infoA.name} (T${infoA.tubeNum})</span>
+        `;
+    }
+    if (coreBInput && previewB) {
+        const infoB = getCoreColorInfo(coreBInput.value);
+        previewB.innerHTML = `
+            <span class="w-3.5 h-3.5 rounded-full border shadow-sm flex-shrink-0" style="background:${infoB.hex}; border-color:${infoB.border}"></span>
+            <span class="truncate">Core ${infoB.coreNum} • ${infoB.name} (T${infoB.tubeNum})</span>
+        `;
+    }
+}
+
+function openNodeSplicingModal(nodeId) {
+    const nList = (typeof nodes !== 'undefined' && Array.isArray(nodes)) ? nodes : (window.nodes || []);
+    const node = nList.find(n => n.id === nodeId);
+    if (!node) {
+        alert('Data titik tidak ditemukan.');
+        return;
+    }
+
+    currentSpliceNodeId = nodeId;
+    spliceSearchQuery = '';
+    spliceFilterStatus = 'ALL';
+
+    const modal = document.getElementById('modal-node-splicing');
+    if (!modal) return;
+
+    if (!Array.isArray(node.splices)) {
+        node.splices = [];
+    }
+
+    document.getElementById('splice-current-node-id').value = node.id;
+    document.getElementById('splice-modal-node-name').innerText = `${node.name} (${node.type || 'Titik'})`;
+    document.getElementById('splice-modal-node-subtitle').innerText = `Koordinat: ${node.lat.toFixed(5)}, ${node.lng.toFixed(5)} • Catatan: ${node.note || '-'}`;
+
+    const searchInput = document.getElementById('splice-search-input');
+    if (searchInput) searchInput.value = '';
+
+    // Populate Datalist Autocomplete Kabel dari kabel aktif
+    const datalist = document.getElementById('splice-cable-suggestions');
+    if (datalist) {
+        const cList = (typeof cables !== 'undefined' && Array.isArray(cables)) ? cables : (window.cables || []);
+        const cableNames = Array.from(new Set(cList.map(c => c.name))).filter(Boolean);
+        datalist.innerHTML = cableNames.map(name => `<option value="${escapeHtml(name)}">`).join('');
+    }
+
+    // Role-based visibility
+    const canWrite = typeof hasWritePermission === 'function' ? hasWritePermission() : false;
+    const btnToggle = document.getElementById('btn-toggle-splice-form');
+    const btnQuick = document.getElementById('btn-quick-12-splice');
+    if (btnToggle) btnToggle.classList.toggle('hidden', !canWrite);
+    if (btnQuick) btnQuick.classList.toggle('hidden', !canWrite);
+
+    toggleSpliceInputForm(false);
+    updateSplicePreviewColors();
+    renderNodeSpliceList(node);
+
+    modal.classList.remove('hidden');
+}
+
+function closeNodeSplicingModal() {
+    const modal = document.getElementById('modal-node-splicing');
+    if (modal) modal.classList.add('hidden');
+    currentSpliceNodeId = null;
+}
+
+function toggleSpliceInputForm(forceState) {
+    const drawer = document.getElementById('splice-input-form-drawer');
+    if (!drawer) return;
+    if (typeof forceState === 'boolean') {
+        drawer.classList.toggle('hidden', !forceState);
+    } else {
+        drawer.classList.toggle('hidden');
+    }
+    if (!drawer.classList.contains('hidden')) {
+        updateSplicePreviewColors();
+        const inputA = document.getElementById('splice-input-cable-a');
+        const inputB = document.getElementById('splice-input-cable-b');
+        const cList = (typeof cables !== 'undefined' && Array.isArray(cables)) ? cables : (window.cables || []);
+        if (inputA && !inputA.value && cList.length > 0) {
+            inputA.value = cList[0].name;
+        }
+        if (inputB && !inputB.value) {
+            if (cList.length > 1) inputB.value = cList[1].name;
+            else if (cList.length === 1) inputB.value = cList[0].name;
+        }
+    }
+}
+
+function setSpliceFilter(status) {
+    spliceFilterStatus = status;
+    const nList = (typeof nodes !== 'undefined' && Array.isArray(nodes)) ? nodes : (window.nodes || []);
+    const node = nList.find(n => n.id === currentSpliceNodeId);
+    if (node) renderNodeSpliceList(node);
+}
+
+function onSpliceSearchChange(val) {
+    spliceSearchQuery = val || '';
+    const nList = (typeof nodes !== 'undefined' && Array.isArray(nodes)) ? nodes : (window.nodes || []);
+    const node = nList.find(n => n.id === currentSpliceNodeId);
+    if (node) renderNodeSpliceList(node);
+}
+
+function renderNodeSpliceList(node) {
+    if (!node) {
+        const nList = (typeof nodes !== 'undefined' && Array.isArray(nodes)) ? nodes : (window.nodes || []);
+        node = nList.find(n => n.id === currentSpliceNodeId);
+    }
+    if (!node) return;
+
+    const container = document.getElementById('splice-list-container');
+    const pillsContainer = document.getElementById('splice-filter-pills');
+    const totalBadge = document.getElementById('splice-total-badge');
+    const splices = Array.isArray(node.splices) ? node.splices : [];
+    const canWrite = typeof hasWritePermission === 'function' ? hasWritePermission() : false;
+
+    const countTotal = splices.length;
+    const countAktif = splices.filter(s => s.status === 'aktif').length;
+    const countSpare = splices.filter(s => s.status === 'cadangan').length;
+    const countLoss = splices.filter(s => s.status === 'loss').length;
+    const countCut = splices.filter(s => s.status === 'putus').length;
+
+    if (totalBadge) totalBadge.innerText = `${countTotal} sambungan (${countAktif} aktif)`;
+
+    if (pillsContainer) {
+        pillsContainer.innerHTML = `
+            <button onclick="setSpliceFilter('ALL')" class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold transition whitespace-nowrap ${spliceFilterStatus === 'ALL' ? 'bg-indigo-600 text-white shadow' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}">
+                Semua (${countTotal})
+            </button>
+            <button onclick="setSpliceFilter('aktif')" class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold transition whitespace-nowrap ${spliceFilterStatus === 'aktif' ? 'bg-emerald-600 text-white shadow' : 'bg-slate-800 text-emerald-400 hover:bg-slate-700'}">
+                🟢 Aktif (${countAktif})
+            </button>
+            <button onclick="setSpliceFilter('cadangan')" class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold transition whitespace-nowrap ${spliceFilterStatus === 'cadangan' ? 'bg-blue-600 text-white shadow' : 'bg-slate-800 text-blue-400 hover:bg-slate-700'}">
+                🔵 Spare (${countSpare})
+            </button>
+            ${countLoss > 0 ? `
+                <button onclick="setSpliceFilter('loss')" class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold transition whitespace-nowrap ${spliceFilterStatus === 'loss' ? 'bg-amber-600 text-white shadow' : 'bg-slate-800 text-amber-400 hover:bg-slate-700'}">
+                    🟠 High Loss (${countLoss})
+                </button>
+            ` : ''}
+            ${countCut > 0 ? `
+                <button onclick="setSpliceFilter('putus')" class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold transition whitespace-nowrap ${spliceFilterStatus === 'putus' ? 'bg-red-600 text-white shadow' : 'bg-slate-800 text-red-400 hover:bg-slate-700'}">
+                    🔴 Putus (${countCut})
+                </button>
+            ` : ''}
+        `;
+    }
+
+    if (!container) return;
+
+    const filtered = splices.filter(s => {
+        const matchesStatus = (spliceFilterStatus === 'ALL') || (s.status === spliceFilterStatus);
+        const q = spliceSearchQuery.toLowerCase().trim();
+        const matchesQuery = !q ||
+            (s.cableA && s.cableA.toLowerCase().includes(q)) ||
+            (s.cableB && s.cableB.toLowerCase().includes(q)) ||
+            (String(s.coreA) === q) ||
+            (String(s.coreB) === q) ||
+            (s.note && s.note.toLowerCase().includes(q));
+        return matchesStatus && matchesQuery;
+    });
+
+    if (filtered.length === 0) {
+        if (splices.length === 0) {
+            container.innerHTML = `
+                <div class="py-8 text-center text-slate-400 space-y-3 bg-slate-900/50 rounded-2xl border border-dashed border-slate-800 p-6">
+                    <div class="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex items-center justify-center mx-auto text-xl shadow">
+                        <i class="fa-solid fa-arrows-split-up-and-left"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-white text-sm">Belum Ada Sambungan Core di Titik Ini</h4>
+                        <p class="text-xs text-slate-400 max-w-md mx-auto mt-1 leading-relaxed">
+                            Catat pasangan kabel masuk (arah sumber/POP) ke kabel keluar (arah distribusi/ODP) agar teknisi mudah melacak core saat troubleshooting.
+                        </p>
+                    </div>
+                    ${canWrite ? `
+                        <div class="flex flex-wrap items-center justify-center gap-2 pt-1">
+                            <button onclick="toggleSpliceInputForm(true)" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold shadow flex items-center gap-1.5 transition">
+                                <i class="fa-solid fa-plus"></i> Tambah Sambungan Manual
+                            </button>
+                            <button onclick="quickAutoSplice12()" class="bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition">
+                                <i class="fa-solid fa-bolt text-amber-400"></i> Auto Sambung 12 Core (1:1)
+                            </button>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        } else {
+            container.innerHTML = `
+                <div class="py-6 text-center text-slate-400 text-xs italic bg-slate-900/40 rounded-xl p-4 border border-slate-800">
+                    Tidak ada sambungan yang sesuai dengan filter atau kata kunci pencarian "${escapeHtml(spliceSearchQuery)}".
+                </div>
+            `;
+        }
+        return;
+    }
+
+    container.innerHTML = filtered.map(s => {
+        const infoA = getCoreColorInfo(s.coreA);
+        const infoB = getCoreColorInfo(s.coreB);
+
+        const statusBadges = {
+            'aktif': `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1"><i class="fa-solid fa-link text-[9px]"></i> Aktif</span>`,
+            'cadangan': `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30 flex items-center gap-1"><i class="fa-solid fa-shield text-[9px]"></i> Spare</span>`,
+            'loss': `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1"><i class="fa-solid fa-triangle-exclamation text-[9px]"></i> High Loss</span>`,
+            'putus': `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-500/20 text-red-300 border border-red-500/30 flex items-center gap-1"><i class="fa-solid fa-xmark text-[9px]"></i> Putus</span>`
+        };
+        const badge = statusBadges[s.status] || statusBadges['aktif'];
+
+        return `
+            <div class="bg-slate-850 hover:bg-slate-800/90 border border-slate-750 hover:border-slate-700 rounded-xl p-2.5 sm:p-3 flex flex-col sm:flex-row items-center justify-between gap-2.5 shadow transition">
+                <!-- SISI A (Kabel Masuk) -->
+                <div class="flex items-center gap-2.5 min-w-0 flex-1 w-full sm:w-auto">
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shadow flex-shrink-0" 
+                         style="background:${infoA.hex}; color:${infoA.text}; border: 1.5px solid ${infoA.border}">
+                        ${infoA.coreNum}
+                    </div>
+                    <div class="truncate">
+                        <div class="font-bold text-white text-xs truncate flex items-center gap-1.5">
+                            <span>Core ${infoA.coreNum} (${infoA.name})</span>
+                            <span class="text-[9px] bg-slate-800 text-slate-300 px-1 py-0.2 rounded border border-slate-700">Tube ${infoA.tubeNum}</span>
+                        </div>
+                        <div class="text-[11px] text-blue-400 font-medium truncate" title="${escapeHtml(s.cableA || 'Kabel A')}">
+                            <i class="fa-solid fa-arrow-right-to-bracket text-[9px] mr-0.5"></i> ${escapeHtml(s.cableA || 'Kabel A')}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Center: Link Arrow & Parameter Loss -->
+                <div class="flex flex-row sm:flex-col items-center justify-between sm:justify-center px-2 py-1 sm:py-0 w-full sm:w-auto border-y sm:border-y-0 sm:border-x border-slate-750 my-0.5 sm:my-0 flex-shrink-0">
+                    <div>${badge}</div>
+                    <div class="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1 font-mono">
+                        ${s.lossDb ? `<span>${s.lossDb} dB</span>` : ''}
+                        ${s.note ? `<span class="text-slate-300 italic">• ${escapeHtml(s.note)}</span>` : ''}
+                    </div>
+                </div>
+
+                <!-- SISI B (Kabel Keluar) -->
+                <div class="flex items-center gap-2.5 min-w-0 flex-1 w-full sm:w-auto justify-end text-right">
+                    <div class="truncate">
+                        <div class="font-bold text-white text-xs truncate flex items-center justify-end gap-1.5">
+                            <span class="text-[9px] bg-slate-800 text-slate-300 px-1 py-0.2 rounded border border-slate-700">Tube ${infoB.tubeNum}</span>
+                            <span>Core ${infoB.coreNum} (${infoB.name})</span>
+                        </div>
+                        <div class="text-[11px] text-emerald-400 font-medium truncate" title="${escapeHtml(s.cableB || 'Kabel B')}">
+                            ${escapeHtml(s.cableB || 'Kabel B')} <i class="fa-solid fa-arrow-right-from-bracket text-[9px] ml-0.5"></i>
+                        </div>
+                    </div>
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shadow flex-shrink-0" 
+                         style="background:${infoB.hex}; color:${infoB.text}; border: 1.5px solid ${infoB.border}">
+                        ${infoB.coreNum}
+                    </div>
+                </div>
+
+                <!-- Delete Action (Admin / Super Admin Only) -->
+                ${canWrite ? `
+                    <div class="flex items-center justify-end w-full sm:w-auto pt-1 sm:pt-0 sm:pl-1 border-t sm:border-t-0 sm:border-l border-slate-750 flex-shrink-0">
+                        <button onclick="deleteNodeSplice('${node.id}', '${s.id}')" title="Hapus sambungan ini" class="p-1 rounded text-slate-500 hover:text-red-400 hover:bg-slate-750 transition text-xs">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }).join('');
+}
+
+function saveNewNodeSplice() {
+    if (typeof hasWritePermission === 'function' && !hasWritePermission()) {
+        alert('Akses Ditolak: Diperlukan hak akses Admin untuk mengubah data sambungan core.');
+        return;
+    }
+    const nList = (typeof nodes !== 'undefined' && Array.isArray(nodes)) ? nodes : (window.nodes || []);
+    const node = nList.find(n => n.id === currentSpliceNodeId);
+    if (!node) return;
+
+    const cableA = (document.getElementById('splice-input-cable-a')?.value || '').trim() || 'Kabel Utama (A)';
+    const coreA = parseInt(document.getElementById('splice-input-core-a')?.value) || 1;
+    const cableB = (document.getElementById('splice-input-cable-b')?.value || '').trim() || 'Kabel Distribusi (B)';
+    const coreB = parseInt(document.getElementById('splice-input-core-b')?.value) || 1;
+    const status = document.getElementById('splice-input-status')?.value || 'aktif';
+    const lossDb = (document.getElementById('splice-input-loss')?.value || '').trim();
+    const note = (document.getElementById('splice-input-note')?.value || '').trim();
+
+    if (!Array.isArray(node.splices)) node.splices = [];
+
+    const newSplice = {
+        id: 'spl_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+        cableA,
+        coreA,
+        cableB,
+        coreB,
+        status,
+        lossDb,
+        note,
+        updatedAt: new Date().toISOString()
+    };
+
+    node.splices.push(newSplice);
+
+    const coreAInput = document.getElementById('splice-input-core-a');
+    const coreBInput = document.getElementById('splice-input-core-b');
+    if (coreAInput) coreAInput.value = coreA + 1;
+    if (coreBInput) coreBInput.value = coreB + 1;
+    updateSplicePreviewColors();
+
+    if (typeof saveAndRefresh === 'function') saveAndRefresh();
+    renderNodeSpliceList(node);
+
+    if (typeof showToast === 'function') {
+        showToast(`✅ Sambungan Core ${coreA} ➔ Core ${coreB} berhasil disimpan!`);
+    }
+}
+
+function quickAutoSplice12() {
+    if (typeof hasWritePermission === 'function' && !hasWritePermission()) {
+        alert('Akses Ditolak: Diperlukan hak akses Admin.');
+        return;
+    }
+    const nList = (typeof nodes !== 'undefined' && Array.isArray(nodes)) ? nodes : (window.nodes || []);
+    const node = nList.find(n => n.id === currentSpliceNodeId);
+    if (!node) return;
+
+    const defaultCableA = document.getElementById('splice-input-cable-a')?.value || 'Kabel Masuk';
+    const defaultCableB = document.getElementById('splice-input-cable-b')?.value || 'Kabel Keluar';
+
+    const cableA = prompt('Masukkan nama Kabel A (Kabel Masuk):', defaultCableA);
+    if (!cableA) return;
+    const cableB = prompt('Masukkan nama Kabel B (Kabel Keluar):', defaultCableB);
+    if (!cableB) return;
+
+    if (!confirm(`Buat otomatis 12 sambungan lurus (Core 1–12 "${cableA}" ➔ Core 1–12 "${cableB}")?`)) return;
+
+    if (!Array.isArray(node.splices)) node.splices = [];
+
+    for (let i = 1; i <= 12; i++) {
+        const existing = node.splices.find(s => s.cableA === cableA && s.coreA === i && s.cableB === cableB && s.coreB === i);
+        if (!existing) {
+            node.splices.push({
+                id: 'spl_' + Date.now() + '_' + i + '_' + Math.random().toString(36).substr(2, 3),
+                cableA,
+                coreA: i,
+                cableB,
+                coreB: i,
+                status: 'aktif',
+                lossDb: '0.02',
+                note: 'Tray 1 (1:1)',
+                updatedAt: new Date().toISOString()
+            });
+        }
+    }
+
+    if (typeof saveAndRefresh === 'function') saveAndRefresh();
+    renderNodeSpliceList(node);
+
+    if (typeof showToast === 'function') {
+        showToast(`⚡ 12 Sambungan Core (1:1) berhasil dibuat otomatis!`);
+    }
+}
+
+function deleteNodeSplice(nodeId, spliceId) {
+    if (typeof hasWritePermission === 'function' && !hasWritePermission()) {
+        alert('Akses Ditolak: Diperlukan hak akses Admin.');
+        return;
+    }
+    const nList = (typeof nodes !== 'undefined' && Array.isArray(nodes)) ? nodes : (window.nodes || []);
+    const node = nList.find(n => n.id === nodeId);
+    if (!node || !Array.isArray(node.splices)) return;
+
+    if (!confirm('Hapus baris sambungan core ini?')) return;
+
+    node.splices = node.splices.filter(s => s.id !== spliceId);
+
+    if (typeof saveAndRefresh === 'function') saveAndRefresh();
+    renderNodeSpliceList(node);
+
+    if (typeof showToast === 'function') {
+        showToast('Sambungan core telah dihapus.');
+    }
+}
+
+function exportNodeSplicesCSV() {
+    const nList = (typeof nodes !== 'undefined' && Array.isArray(nodes)) ? nodes : (window.nodes || []);
+    const node = nList.find(n => n.id === currentSpliceNodeId);
+    if (!node || !Array.isArray(node.splices) || node.splices.length === 0) {
+        alert('Belum ada data sambungan core untuk diekspor pada titik ini.');
+        return;
+    }
+
+    let csvContent = 'No,Titik,Kabel_A,Core_A,Warna_A,Tube_A,Status,Loss_dB,Kabel_B,Core_B,Warna_B,Tube_B,Keterangan\n';
+    node.splices.forEach((s, idx) => {
+        const infoA = getCoreColorInfo(s.coreA);
+        const infoB = getCoreColorInfo(s.coreB);
+        csvContent += `${idx + 1},"${node.name}","${s.cableA}",${s.coreA},"${infoA.name}",${infoA.tubeNum},"${s.status}","${s.lossDb || '0.02'}","${s.cableB}",${s.coreB},"${infoB.name}",${infoB.tubeNum},"${s.note || ''}"\n`;
+    });
+
+    const filename = `Splicing_${(node.name || 'Titik').replace(/[^a-zA-Z0-9_-]/g, '_')}.csv`;
+    if (typeof downloadFile === 'function') {
+        downloadFile(csvContent, filename, 'text/csv');
+    } else {
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+}
+
+if (typeof window !== 'undefined') {
+    window.openNodeSplicingModal = openNodeSplicingModal;
+    window.closeNodeSplicingModal = closeNodeSplicingModal;
+    window.toggleSpliceInputForm = toggleSpliceInputForm;
+    window.updateSplicePreviewColors = updateSplicePreviewColors;
+    window.saveNewNodeSplice = saveNewNodeSplice;
+    window.quickAutoSplice12 = quickAutoSplice12;
+    window.deleteNodeSplice = deleteNodeSplice;
+    window.exportNodeSplicesCSV = exportNodeSplicesCSV;
+    window.setSpliceFilter = setSpliceFilter;
+    window.onSpliceSearchChange = onSpliceSearchChange;
+}
+

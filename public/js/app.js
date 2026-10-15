@@ -642,11 +642,20 @@ function getNodePopupHtml(node) {
 
     const photoHtml = renderPhotoThumbnails(node.photos, node.name);
 
+    const spliceCount = (node.splices && Array.isArray(node.splices)) ? node.splices.length : 0;
+    const spliceBtnHtml = `
+        <button onclick="openNodeSplicingModal('${node.id}')" title="Buka Tabel Sambungan Core & Splicing Tray" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-1.5 px-2 rounded-lg text-xs flex items-center justify-center gap-1.5 shadow transition">
+            <i class="fa-solid fa-arrows-split-up-and-left"></i>
+            <span>Tabel Splicing Core ${spliceCount > 0 ? `(${spliceCount})` : ''}</span>
+        </button>
+    `;
+
     const actionSectionHtml = canWrite ? `
         <div class="pt-1.5 border-t border-slate-200 flex flex-col gap-1.5">
             <button onclick="startCableFromNode('${node.id}')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 px-2 rounded-lg text-xs flex items-center justify-center gap-1.5 shadow transition">
                 <i class="fa-solid fa-route"></i> + Tarik Jalur FO dari Titik Ini
             </button>
+            ${spliceBtnHtml}
             <div class="flex items-center justify-between gap-1 pt-1 border-t border-slate-100">
                 <button onclick="openEditNodeModal('${node.id}')" class="text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-1">
                     <i class="fa-solid fa-pen-to-square"></i> Edit
@@ -660,11 +669,14 @@ function getNodePopupHtml(node) {
             </div>
         </div>
     ` : `
-        <div class="pt-1.5 border-t border-slate-200 flex items-center justify-between">
-            <span class="text-[10px] text-slate-500 italic flex items-center gap-1"><i class="fa-solid fa-lock"></i> Read-Only</span>
-            <a href="https://www.google.com/maps?q=${node.lat},${node.lng}" target="_blank" class="text-emerald-600 hover:text-emerald-700 font-semibold flex items-center gap-1 text-xs">
-                <i class="fa-solid fa-arrow-up-right-from-square"></i> Buka Google Maps
-            </a>
+        <div class="pt-1.5 border-t border-slate-200 flex flex-col gap-1.5">
+            ${spliceBtnHtml}
+            <div class="flex items-center justify-between pt-1 border-t border-slate-100">
+                <span class="text-[10px] text-slate-500 italic flex items-center gap-1"><i class="fa-solid fa-lock"></i> Read-Only</span>
+                <a href="https://www.google.com/maps?q=${node.lat},${node.lng}" target="_blank" class="text-emerald-600 hover:text-emerald-700 font-semibold flex items-center gap-1 text-xs">
+                    <i class="fa-solid fa-arrow-up-right-from-square"></i> Buka Google Maps
+                </a>
+            </div>
         </div>
     `;
 
@@ -1434,6 +1446,7 @@ function updateUI() {
                                     <span class="text-xs truncate">${escapeHtml(n.name)}</span>
                                 </div>
                                 <div class="flex items-center gap-1 flex-shrink-0">
+                                    <button onclick="openNodeSplicingModal('${n.id}')" title="Tabel Sambungan Core / Splicing (${(n.splices || []).length})" class="text-indigo-400 hover:text-indigo-300 p-1"><i class="fa-solid fa-arrows-split-up-and-left"></i></button>
                                     ${canWrite ? `
                                         <button onclick="startCableFromNode('${n.id}')" title="Tarik Jalur FO dari titik ini" class="text-emerald-400 hover:text-emerald-300 p-1"><i class="fa-solid fa-route"></i></button>
                                         <button onclick="openEditNodeModal('${n.id}')" title="Edit Deskripsi & Foto" class="text-amber-400 hover:text-amber-300 p-1"><i class="fa-solid fa-pen-to-square"></i></button>
@@ -1446,7 +1459,10 @@ function updateUI() {
                             </div>
                             <div class="text-[11px] text-slate-400 flex items-center justify-between">
                                 <span>${n.lat.toFixed(5)}, ${n.lng.toFixed(5)} • ${escapeHtml(n.note || '-')}</span>
-                                ${n.photos && n.photos.length > 0 ? `<span class="text-blue-400 text-[10px] font-semibold"><i class="fa-solid fa-camera mr-1"></i>${n.photos.length} foto</span>` : ''}
+                                <div class="flex items-center gap-1.5 flex-shrink-0">
+                                    ${n.splices && n.splices.length > 0 ? `<span class="text-indigo-400 text-[10px] font-semibold bg-indigo-950/60 px-1.5 py-0.2 rounded border border-indigo-800/40"><i class="fa-solid fa-link mr-0.5"></i>${n.splices.length} splice</span>` : ''}
+                                    ${n.photos && n.photos.length > 0 ? `<span class="text-blue-400 text-[10px] font-semibold"><i class="fa-solid fa-camera mr-1"></i>${n.photos.length} foto</span>` : ''}
+                                </div>
                             </div>
                             ${n.description ? `<p class="text-[11px] text-slate-300 bg-slate-800/80 p-1.5 rounded border border-slate-700/60 line-clamp-2">${escapeHtml(n.description)}</p>` : ''}
                         </div>
