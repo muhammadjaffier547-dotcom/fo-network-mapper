@@ -1377,7 +1377,7 @@ function saveAndRefresh() {
         return;
     }
     const now = new Date().toISOString();
-    const currentLogs = (typeof activityLogs !== 'undefined') ? activityLogs : (window.activityLogs || []);
+    const currentLogs = (typeof getActivityLogs === 'function') ? getActivityLogs() : ((typeof activityLogs !== 'undefined') ? activityLogs : (window.activityLogs || []));
     localStorage.setItem('fo_mapper_data', JSON.stringify({ nodes, cables, activityLogs: currentLogs }));
     localStorage.setItem('fo_mapper_updated_at', now);
     updateUI();
@@ -2034,9 +2034,13 @@ function setNetworkData(newNodes, newCables, newLogs = null, shouldFitBounds = t
     nodes = Array.isArray(newNodes) ? newNodes : [];
     cables = Array.isArray(newCables) ? newCables : [];
     if (newLogs && Array.isArray(newLogs)) {
-        activityLogs = newLogs;
-        window.activityLogs = activityLogs;
-        if (typeof renderActivityLogList === 'function') renderActivityLogList();
+        if (typeof setActivityLogs === 'function') {
+            setActivityLogs(newLogs);
+        } else {
+            activityLogs = newLogs;
+            window.activityLogs = activityLogs;
+            if (typeof renderActivityLogList === 'function') renderActivityLogList();
+        }
     }
 
     window.nodes = nodes;
@@ -2051,7 +2055,7 @@ function setNetworkData(newNodes, newCables, newLogs = null, shouldFitBounds = t
 
     // 4. Perbarui cache lokal
     try {
-        const currentLogs = (typeof activityLogs !== 'undefined') ? activityLogs : [];
+        const currentLogs = (typeof getActivityLogs === 'function') ? getActivityLogs() : ((typeof activityLogs !== 'undefined') ? activityLogs : (window.activityLogs || []));
         localStorage.setItem('fo_mapper_data', JSON.stringify({ nodes, cables, activityLogs: currentLogs }));
     } catch (e) {}
 
@@ -2109,8 +2113,12 @@ window.setNetworkData = setNetworkData;
             nodes = parsed.nodes || [];
             cables = parsed.cables || [];
             if (Array.isArray(parsed.activityLogs)) {
-                activityLogs = parsed.activityLogs;
-                window.activityLogs = activityLogs;
+                if (typeof setActivityLogs === 'function') {
+                    setActivityLogs(parsed.activityLogs);
+                } else {
+                    activityLogs = parsed.activityLogs;
+                    window.activityLogs = activityLogs;
+                }
             }
             window.nodes = nodes;
             window.cables = cables;

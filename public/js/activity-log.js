@@ -7,6 +7,40 @@ let activityLogs = [];
 let currentLogFilter = 'ALL';
 let currentLogSearch = '';
 
+// Inisialisasi awal log dari local storage browser
+try {
+    const savedInitial = localStorage.getItem('fo_mapper_data');
+    if (savedInitial) {
+        const parsedInitial = JSON.parse(savedInitial);
+        if (Array.isArray(parsedInitial.activityLogs)) {
+            activityLogs = parsedInitial.activityLogs;
+        }
+    }
+} catch (e) {}
+if (typeof window !== 'undefined') {
+    window.activityLogs = activityLogs;
+}
+
+/**
+ * Setter terpusat untuk memperbarui riwayat log dari cloud/storage
+ */
+function setActivityLogs(newLogs) {
+    if (!Array.isArray(newLogs)) return;
+    activityLogs = [...newLogs];
+    window.activityLogs = activityLogs;
+    renderActivityLogList();
+}
+
+/**
+ * Getter terpusat untuk mengambil data log terbaru
+ */
+function getActivityLogs() {
+    if (window.activityLogs && Array.isArray(window.activityLogs) && window.activityLogs.length > activityLogs.length) {
+        activityLogs = window.activityLogs;
+    }
+    return activityLogs;
+}
+
 /**
  * Catat aktivitas baru ke dalam log
  * @param {string} actionType - 'node_create'|'node_update'|'node_delete'|'cable_create'|'cable_update'|'cable_delete'|'splice_create'|'splice_delete'|'reset'
@@ -244,7 +278,7 @@ function renderActivityLogList() {
     const badgeCount = document.getElementById('log-total-count-badge');
     const filterPills = document.getElementById('log-filter-pills');
 
-    const logs = Array.isArray(activityLogs) ? activityLogs : (window.activityLogs || []);
+    const logs = (typeof getActivityLogs === 'function') ? getActivityLogs() : (window.activityLogs || activityLogs || []);
     if (badgeCount) badgeCount.innerText = `${logs.length} Aktivitas Tercatat`;
 
     // Render filter pills
@@ -363,7 +397,7 @@ function renderActivityLogList() {
  * Ekspor log aktivitas ke format CSV untuk laporan audit
  */
 function exportActivityLogsCSV() {
-    const logs = Array.isArray(activityLogs) ? activityLogs : (window.activityLogs || []);
+    const logs = (typeof getActivityLogs === 'function') ? getActivityLogs() : (window.activityLogs || activityLogs || []);
     if (logs.length === 0) {
         alert('Belum ada data riwayat aktivitas untuk diekspor.');
         return;
@@ -420,6 +454,8 @@ function clearAllActivityLogs() {
 if (typeof window !== 'undefined') {
     window.activityLogs = activityLogs;
     window.logActivity = logActivity;
+    window.setActivityLogs = setActivityLogs;
+    window.getActivityLogs = getActivityLogs;
     window.openActivityLogModal = openActivityLogModal;
     window.closeActivityLogModal = closeActivityLogModal;
     window.renderActivityLogList = renderActivityLogList;
