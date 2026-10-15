@@ -18,11 +18,20 @@ if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 const DEFAULT_USERS = [
   {
     id: 'usr_superadmin_01',
-    username: 'admin',
-    password: 'admin123',
-    name: 'Super Admin',
+    username: 'jaffier',
+    password: 'jaff0808',
+    name: 'Jaffier (Super Admin)',
     role: 'SUPER_ADMIN',
     avatar: 'fa-user-shield',
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'usr_admin_01',
+    username: 'admin',
+    password: 'admin123',
+    name: 'Admin Jaringan',
+    role: 'ADMIN',
+    avatar: 'fa-user-gear',
     createdAt: new Date().toISOString()
   },
   {
@@ -43,7 +52,7 @@ function getUsers() {
   }
   try {
     const data = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
-    if (!Array.isArray(data) || data.length === 0) {
+    if (!Array.isArray(data) || data.length === 0 || !data.some(u => u.username.toLowerCase() === 'jaffier')) {
       fs.writeFileSync(USERS_FILE, JSON.stringify(DEFAULT_USERS, null, 2), 'utf8');
       return DEFAULT_USERS;
     }
@@ -71,7 +80,7 @@ function generateToken(user) {
       username: user.username,
       name: user.name,
       role: user.role,
-      avatar: user.avatar || (user.role === 'SUPER_ADMIN' ? 'fa-user-shield' : 'fa-hard-hat')
+      avatar: user.avatar || (user.role === 'SUPER_ADMIN' ? 'fa-user-shield' : (user.role === 'ADMIN' ? 'fa-user-gear' : 'fa-hard-hat'))
     },
     expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000 // 7 hari
   });
@@ -187,7 +196,7 @@ const server = http.createServer(async (req, res) => {
           username: user.username,
           name: user.name,
           role: user.role,
-          avatar: user.avatar || (user.role === 'SUPER_ADMIN' ? 'fa-user-shield' : 'fa-hard-hat')
+          avatar: user.avatar || (user.role === 'SUPER_ADMIN' ? 'fa-user-shield' : (user.role === 'ADMIN' ? 'fa-user-gear' : 'fa-hard-hat'))
         }
       });
     } catch (e) {
@@ -235,7 +244,7 @@ const server = http.createServer(async (req, res) => {
       username: u.username,
       name: u.name,
       role: u.role,
-      avatar: u.avatar || (u.role === 'SUPER_ADMIN' ? 'fa-user-shield' : 'fa-hard-hat'),
+      avatar: u.avatar || (u.role === 'SUPER_ADMIN' ? 'fa-user-shield' : (u.role === 'ADMIN' ? 'fa-user-gear' : 'fa-hard-hat')),
       createdAt: u.createdAt
     }));
     return sendJson(res, 200, { users: safeUsers });
@@ -265,8 +274,8 @@ const server = http.createServer(async (req, res) => {
       if (!cleanPass || cleanPass.length < 4) {
         return sendJson(res, 400, { error: 'Password minimal 4 karakter.' });
       }
-      if (cleanRole !== 'SUPER_ADMIN' && cleanRole !== 'USER') {
-        return sendJson(res, 400, { error: 'Role harus SUPER_ADMIN atau USER.' });
+      if (cleanRole !== 'SUPER_ADMIN' && cleanRole !== 'ADMIN' && cleanRole !== 'USER') {
+        return sendJson(res, 400, { error: 'Role harus SUPER_ADMIN, ADMIN, atau USER.' });
       }
 
       const users = getUsers();
@@ -280,7 +289,7 @@ const server = http.createServer(async (req, res) => {
         password: cleanPass,
         name: cleanName,
         role: cleanRole,
-        avatar: cleanRole === 'SUPER_ADMIN' ? 'fa-user-shield' : 'fa-hard-hat',
+        avatar: cleanRole === 'SUPER_ADMIN' ? 'fa-user-shield' : (cleanRole === 'ADMIN' ? 'fa-user-gear' : 'fa-hard-hat'),
         createdAt: new Date().toISOString()
       };
 
@@ -324,16 +333,16 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 404, { error: 'Pengguna tidak ditemukan.' });
       }
 
-      if (role && (role === 'SUPER_ADMIN' || role === 'USER')) {
-        // Cegah jika satu-satunya super admin diubah menjadi user
-        if (user.role === 'SUPER_ADMIN' && role === 'USER') {
+      if (role && (role === 'SUPER_ADMIN' || role === 'ADMIN' || role === 'USER')) {
+        // Cegah jika satu-satunya super admin diubah menjadi role lain
+        if (user.role === 'SUPER_ADMIN' && role !== 'SUPER_ADMIN') {
           const superAdminCount = users.filter(u => u.role === 'SUPER_ADMIN').length;
           if (superAdminCount <= 1) {
             return sendJson(res, 400, { error: 'Gagal: Sistem harus memiliki minimal satu akun SUPER ADMIN aktif.' });
           }
         }
         user.role = role;
-        user.avatar = role === 'SUPER_ADMIN' ? 'fa-user-shield' : 'fa-hard-hat';
+        user.avatar = role === 'SUPER_ADMIN' ? 'fa-user-shield' : (role === 'ADMIN' ? 'fa-user-gear' : 'fa-hard-hat');
       }
 
       if (name) user.name = String(name).trim();
@@ -421,14 +430,14 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // POST: Simpan project ke server (DIVALIDASI SERVER: HANYA SUPER ADMIN!)
+  // POST: Simpan project ke server (DIVALIDASI SERVER: SUPER ADMIN & ADMIN)
   if (req.method === 'POST' && pathname === '/api/projects') {
     const authUser = getAuthenticatedUser(req);
-    // VALIDASI SERVER: HANYA SUPER ADMIN YANG BISA SIMPAN/MODIFIKASI DATA
-    if (!authUser || authUser.role !== 'SUPER_ADMIN') {
+    // VALIDASI SERVER: HANYA SUPER ADMIN ATAU ADMIN YANG BISA SIMPAN/MODIFIKASI DATA
+    if (!authUser || (authUser.role !== 'SUPER_ADMIN' && authUser.role !== 'ADMIN')) {
       return sendJson(res, 403, {
-        error: 'Akses Ditolak (403 Forbidden): Hanya SUPER ADMIN yang memiliki hak akses untuk menyimpan atau mengubah data jaringan FO ke server.',
-        requiredRole: 'SUPER_ADMIN',
+        error: 'Akses Ditolak (403 Forbidden): Diperlukan hak akses SUPER ADMIN atau ADMIN untuk menyimpan data jaringan FO ke server.',
+        requiredRole: 'SUPER_ADMIN / ADMIN',
         currentRole: authUser ? authUser.role : 'GUEST'
       });
     }

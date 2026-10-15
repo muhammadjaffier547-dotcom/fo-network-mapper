@@ -1935,11 +1935,18 @@ function downloadFile(content, filename, mimeType) {
 }
 
 function clearAllData(confirmAsk = true) {
-    if (typeof hasWritePermission === 'function' && !hasWritePermission()) {
-        alert('Akses Ditolak: Hanya SUPER ADMIN yang dapat mereset seluruh database.');
-        return;
+    if (confirmAsk) {
+        if (typeof isSuperAdmin === 'function' && !isSuperAdmin()) {
+            alert('Akses Ditolak: Hanya SUPER ADMIN (jaffier) yang berwenang mereset seluruh database jaringan.');
+            return;
+        }
+        if (!confirm('PERINGATAN SUPER ADMIN:\n\nApakah Anda yakin ingin menghapus SEMUA titik tiang/closure dan seluruh jalur kabel FO dari peta & database? Tindakan ini tidak dapat dibatalkan.')) return;
+    } else {
+        if (typeof hasWritePermission === 'function' && !hasWritePermission()) {
+            alert('Akses Ditolak: Diperlukan hak akses Admin untuk memuat ulang data.');
+            return;
+        }
     }
-    if (confirmAsk && !confirm('Hapus semua titik dan jalur dari peta?')) return;
     if (typeof finishEditingCableRoute === 'function') finishEditingCableRoute(false);
     Object.values(nodeMarkers).forEach(m => map.removeLayer(m));
     Object.values(cablePolylines).forEach(p => map.removeLayer(p));
@@ -1949,6 +1956,9 @@ function clearAllData(confirmAsk = true) {
     cables = [];
     resetTempCable();
     saveAndRefresh();
+    if (typeof showToast === 'function') {
+        showToast('Database peta jalur FO telah dibersihkan.');
+    }
 }
 
 // Load saved data on startup

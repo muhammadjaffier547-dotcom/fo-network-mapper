@@ -24,12 +24,21 @@ UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 DEFAULT_USERS = [
     {
         "id": "usr_superadmin_01",
-        "username": "admin",
-        "password": "admin123",
-        "name": "Super Admin",
+        "username": "jaffier",
+        "password": "jaff0808",
+        "name": "Jaffier (Super Admin)",
         "role": "SUPER_ADMIN",
         "avatar": "fa-user-shield",
-        "createdAt": "2026-10-14T00:00:00.000Z"
+        "createdAt": "2026-10-15T00:00:00.000Z"
+    },
+    {
+        "id": "usr_admin_01",
+        "username": "admin",
+        "password": "admin123",
+        "name": "Admin Jaringan",
+        "role": "ADMIN",
+        "avatar": "fa-user-gear",
+        "createdAt": "2026-10-15T00:00:00.000Z"
     },
     {
         "id": "usr_teknisi_01",
@@ -38,7 +47,7 @@ DEFAULT_USERS = [
         "name": "Teknisi Lapangan",
         "role": "USER",
         "avatar": "fa-hard-hat",
-        "createdAt": "2026-10-14T00:00:00.000Z"
+        "createdAt": "2026-10-15T00:00:00.000Z"
     }
 ]
 
@@ -50,7 +59,9 @@ def get_users():
     try:
         with open(USERS_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
-            if not isinstance(data, list) or len(data) == 0:
+            if not isinstance(data, list) or len(data) == 0 or not any(u.get("username", "").lower() == "jaffier" for u in data):
+                with open(USERS_FILE, "w", encoding="utf-8") as f:
+                    json.dump(DEFAULT_USERS, f, indent=2)
                 return DEFAULT_USERS
             return data
     except Exception:
@@ -66,13 +77,15 @@ SESSIONS = {}
 
 def generate_token(user):
     token = "tok_" + secrets.token_hex(24)
+    role = user.get("role", "USER")
+    avatar_fallback = "fa-user-shield" if role == "SUPER_ADMIN" else ("fa-user-gear" if role == "ADMIN" else "fa-hard-hat")
     SESSIONS[token] = {
         "user": {
             "id": user["id"],
             "username": user["username"],
             "name": user.get("name", user["username"]),
-            "role": user["role"],
-            "avatar": user.get("avatar", "fa-user-shield" if user["role"] == "SUPER_ADMIN" else "fa-hard-hat")
+            "role": role,
+            "avatar": user.get("avatar", avatar_fallback)
         },
         "expires_at": time.time() + 7 * 24 * 3600
     }
@@ -209,8 +222,8 @@ class FOMapperHandler(http.server.SimpleHTTPRequestHandler):
 
             if len(username) < 3 or len(password) < 4:
                 return self.send_json(400, {"error": "Username minimal 3 karakter dan password minimal 4 karakter."})
-            if role not in ["SUPER_ADMIN", "USER"]:
-                return self.send_json(400, {"error": "Role harus SUPER_ADMIN atau USER."})
+            if role not in ["SUPER_ADMIN", "ADMIN", "USER"]:
+                return self.send_json(400, {"error": "Role harus SUPER_ADMIN, ADMIN, atau USER."})
 
             users = get_users()
             if any(u["username"].lower() == username for u in users):
@@ -222,7 +235,7 @@ class FOMapperHandler(http.server.SimpleHTTPRequestHandler):
                 "password": password,
                 "name": name,
                 "role": role,
-                "avatar": "fa-user-shield" if role == "SUPER_ADMIN" else "fa-hard-hat",
+                "avatar": "fa-user-shield" if role == "SUPER_ADMIN" else ("fa-user-gear" if role == "ADMIN" else "fa-hard-hat"),
                 "createdAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
             }
             users.append(new_user)
@@ -231,11 +244,11 @@ class FOMapperHandler(http.server.SimpleHTTPRequestHandler):
 
         if path == "/api/projects":
             user = get_authenticated_user(self.headers)
-            # SERVER-SIDE ROLE CHECK: ONLY SUPER ADMIN!
-            if not user or user.get("role") != "SUPER_ADMIN":
+            # SERVER-SIDE ROLE CHECK: SUPER ADMIN ATAU ADMIN!
+            if not user or user.get("role") not in ["SUPER_ADMIN", "ADMIN"]:
                 return self.send_json(403, {
-                    "error": "Akses Ditolak (403 Forbidden): Hanya SUPER ADMIN yang memiliki hak akses untuk menyimpan atau mengubah data jaringan FO ke server.",
-                    "requiredRole": "SUPER_ADMIN",
+                    "error": "Akses Ditolak (403 Forbidden): Diperlukan hak akses SUPER ADMIN atau ADMIN untuk menyimpan data jaringan FO ke server.",
+                    "requiredRole": "SUPER_ADMIN / ADMIN",
                     "currentRole": user.get("role") if user else "GUEST"
                 })
 

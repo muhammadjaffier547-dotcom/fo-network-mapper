@@ -17,11 +17,19 @@ try {
 const OFFLINE_FALLBACK_USERS = [
     {
         id: 'usr_superadmin_01',
-        username: 'admin',
-        password: 'admin123',
-        name: 'Super Admin',
+        username: 'jaffier',
+        password: 'jaff0808',
+        name: 'Jaffier (Super Admin)',
         role: 'SUPER_ADMIN',
         avatar: 'fa-user-shield'
+    },
+    {
+        id: 'usr_admin_01',
+        username: 'admin',
+        password: 'admin123',
+        name: 'Admin Jaringan',
+        role: 'ADMIN',
+        avatar: 'fa-user-gear'
     },
     {
         id: 'usr_teknisi_01',
@@ -35,9 +43,16 @@ const OFFLINE_FALLBACK_USERS = [
 
 function getStoredLocalUsers() {
     try {
+        const version = localStorage.getItem('fo_users_version');
         const saved = localStorage.getItem('fo_local_users');
-        if (saved) return JSON.parse(saved);
+        if (version === 'v2' && saved) {
+            const list = JSON.parse(saved);
+            if (Array.isArray(list) && list.some(u => u.username.toLowerCase() === 'jaffier')) {
+                return list;
+            }
+        }
     } catch (e) {}
+    localStorage.setItem('fo_users_version', 'v2');
     localStorage.setItem('fo_local_users', JSON.stringify(OFFLINE_FALLBACK_USERS));
     return OFFLINE_FALLBACK_USERS;
 }
@@ -126,16 +141,27 @@ function getCurrentUser() {
 }
 
 /**
- * Cek apakah user memiliki hak akses menulis / edit data
+ * Cek apakah user memiliki hak akses menulis / edit data (SUPER ADMIN atau ADMIN)
  */
 function hasWritePermission() {
     const user = getCurrentUser();
-    return !!(user && (user.role === 'SUPER_ADMIN' || user.role === 'admin'));
+    return !!(user && (user.role === 'SUPER_ADMIN' || user.role === 'ADMIN' || user.role === 'admin'));
 }
 
+/**
+ * Super Admin (jaffier) memiliki hak akses tertinggi, termasuk mereset database dan mengelola akun
+ */
 function isSuperAdmin() {
     const user = getCurrentUser();
-    return !!(user && (user.role === 'SUPER_ADMIN' || user.role === 'admin'));
+    return !!(user && user.role === 'SUPER_ADMIN');
+}
+
+/**
+ * Admin Biasa: Dapat mengedit peta/data/foto, TETAPI TIDAK MEMILIKI AKSES TOMBOL RESET
+ */
+function isAdmin() {
+    const user = getCurrentUser();
+    return !!(user && (user.role === 'ADMIN' || user.role === 'admin'));
 }
 
 function isUserRole() {
@@ -152,6 +178,7 @@ if (typeof window !== 'undefined') {
     window.getCurrentUser = getCurrentUser;
     window.hasWritePermission = hasWritePermission;
     window.isSuperAdmin = isSuperAdmin;
+    window.isAdmin = isAdmin;
     window.isUserRole = isUserRole;
     window.isGuest = isGuest;
 }
@@ -235,12 +262,14 @@ async function submitLogin() {
         const localUsers = getStoredLocalUsers();
         const found = localUsers.find(u => u.username.toLowerCase() === username.toLowerCase() && u.password === password);
         if (found) {
+            const role = found.role;
+            const defAvatar = role === 'SUPER_ADMIN' ? 'fa-user-shield' : (role === 'ADMIN' ? 'fa-user-gear' : 'fa-hard-hat');
             currentAuthUser = {
                 id: found.id,
                 username: found.username,
                 name: found.name,
-                role: found.role,
-                avatar: found.avatar || (found.role === 'SUPER_ADMIN' ? 'fa-user-shield' : 'fa-hard-hat')
+                role: role,
+                avatar: found.avatar || defAvatar
             };
             currentAuthToken = 'local_tok_' + Date.now();
             sessionStorage.setItem('fo_auth_token', currentAuthToken);
@@ -258,7 +287,8 @@ async function submitLogin() {
         closeLoginModal();
         applyRoleUI();
         if (typeof showToast === 'function') {
-            showToast(`👋 Berhasil masuk! Selamat datang, ${currentAuthUser.name} (${currentAuthUser.role === 'SUPER_ADMIN' ? 'Super Admin' : 'User Read-Only'}).`);
+            const roleLabel = currentAuthUser.role === 'SUPER_ADMIN' ? 'Super Admin' : (currentAuthUser.role === 'ADMIN' ? 'Admin Biasa' : 'User Read-Only');
+            showToast(`👋 Berhasil masuk! Selamat datang, ${currentAuthUser.name} (${roleLabel}).`);
         }
     } else {
         if (errEl) {
@@ -317,7 +347,9 @@ function applyRoleUI() {
     }
     const role = currentAuthUser ? currentAuthUser.role : 'GUEST';
     const isSuper = role === 'SUPER_ADMIN';
-    const isUser = role === 'USER';
+    const isAdminRole = role === 'ADMIN' || role === 'admin';
+    const isUser = role === 'USER' || role === 'user';
+    const canWrite = isSuper || isAdminRole;
 
     // 1. Update Header User Profile Strip
     const profileContainer = document.getElementById('user-header-profile');
@@ -336,9 +368,28 @@ function applyRoleUI() {
                     <div class="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 text-sm shadow">
                         <i class="fa-solid ${currentAuthUser.avatar || 'fa-user-shield'}"></i>
                     </div>
-                    <button onclick="openUserManagementModal()" title="Kelola Akun & Hak Akses Pengguna" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 text-xs shadow transition">
+                    <button onclick="openUserManagementModal()" title="Kelola Akun & Hak Akses Pengguna (Super Admin Only)" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 text-xs shadow transition">
                         <i class="fa-solid fa-users-gear"></i>
                     </button>
+                    <button onclick="executeLogout()" title="Logout" class="p-1.5 rounded-lg bg-slate-800 hover:bg-red-950/60 text-slate-400 hover:text-red-400 border border-slate-700 text-xs shadow transition">
+                        <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                    </button>
+                </div>
+            `;
+        } else if (isAdminRole) {
+            profileContainer.innerHTML = `
+                <div class="flex items-center gap-2">
+                    <div class="text-right leading-tight hidden sm:block">
+                        <div class="text-xs font-bold text-white flex items-center justify-end gap-1">
+                            <span>${escapeHtml(currentAuthUser.name || currentAuthUser.username)}</span>
+                        </div>
+                        <span class="text-[10px] text-emerald-400 font-semibold bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/30">
+                            <i class="fa-solid fa-user-gear text-[9px] mr-0.5"></i> ADMIN (EDITOR)
+                        </span>
+                    </div>
+                    <div class="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 text-sm shadow">
+                        <i class="fa-solid ${currentAuthUser.avatar || 'fa-user-gear'}"></i>
+                    </div>
                     <button onclick="executeLogout()" title="Logout" class="p-1.5 rounded-lg bg-slate-800 hover:bg-red-950/60 text-slate-400 hover:text-red-400 border border-slate-700 text-xs shadow transition">
                         <i class="fa-solid fa-arrow-right-from-bracket"></i>
                     </button>
@@ -380,6 +431,13 @@ function applyRoleUI() {
                     <span>Super Admin</span>
                 </div>
             `;
+        } else if (isAdminRole) {
+            mapAuthPill.innerHTML = `
+                <div class="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-900/90 text-emerald-300 border border-emerald-500/40 shadow-lg backdrop-blur flex items-center gap-1.5">
+                    <i class="fa-solid fa-user-gear text-emerald-400"></i>
+                    <span>Admin Biasa</span>
+                </div>
+            `;
         } else if (isUser) {
             mapAuthPill.innerHTML = `
                 <div class="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-900/90 text-blue-300 border border-blue-500/40 shadow-lg backdrop-blur flex items-center gap-1.5">
@@ -396,36 +454,33 @@ function applyRoleUI() {
         }
     }
 
-    // 3. Mode Selector Buttons (Hanya SUPER ADMIN yang bisa +Titik, +Jalur, Hapus)
+    // 3. Mode Selector Buttons & Kontrol Editing
     const modeBtnContainer = document.getElementById('mode-selector-grid');
     const readOnlyNotice = document.getElementById('mode-readonly-notice');
+    const resetBtn = document.getElementById('btn-reset-database');
+    const tabBtnInput = document.getElementById('tab-btn-input');
 
-    if (!isSuper) {
-        // Non-Admin: Paksa ke mode Pan
+    // TOMBOL RESET DATABASE: HANYA SUPER ADMIN YANG BISA MELIHAT & MEMAKAI
+    if (resetBtn) {
+        if (isSuper) {
+            resetBtn.classList.remove('hidden');
+        } else {
+            resetBtn.classList.add('hidden');
+        }
+    }
+
+    // Mode Interaksi Peta & Input Titik (SUPER ADMIN & ADMIN BIASA)
+    if (canWrite) {
+        if (modeBtnContainer) modeBtnContainer.classList.remove('hidden');
+        if (readOnlyNotice) readOnlyNotice.classList.add('hidden');
+        if (tabBtnInput) tabBtnInput.classList.remove('hidden');
+    } else {
+        // Mode Read-Only untuk USER dan GUEST
         if (typeof setMode === 'function') setMode('pan');
         if (modeBtnContainer) modeBtnContainer.classList.add('hidden');
         if (readOnlyNotice) readOnlyNotice.classList.remove('hidden');
-
-        // Sembunyikan tombol Reset Database pada header
-        const resetBtn = document.getElementById('btn-reset-database');
-        if (resetBtn) resetBtn.classList.add('hidden');
-
-        // Sembunyikan Tab 1 (Input Titik / FO)
-        const tabBtnInput = document.getElementById('tab-btn-input');
         if (tabBtnInput) tabBtnInput.classList.add('hidden');
-
-        // Otomatis pindah ke Tab 2 (Data)
         if (typeof switchTab === 'function') switchTab('tab-list');
-    } else {
-        // SUPER ADMIN: Tampilkan semua kontrol
-        if (modeBtnContainer) modeBtnContainer.classList.remove('hidden');
-        if (readOnlyNotice) readOnlyNotice.classList.add('hidden');
-
-        const resetBtn = document.getElementById('btn-reset-database');
-        if (resetBtn) resetBtn.classList.remove('hidden');
-
-        const tabBtnInput = document.getElementById('tab-btn-input');
-        if (tabBtnInput) tabBtnInput.classList.remove('hidden');
     }
 
     // 4. Perbarui rendering data list dan marker peta agar menyesuaikan role
@@ -535,15 +590,30 @@ async function loadUsersList() {
     listContainer.innerHTML = users.map(u => {
         const isSelf = currentAuthUser && currentAuthUser.id === u.id;
         const isSuper = u.role === 'SUPER_ADMIN';
-        const roleBadge = isSuper
-            ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1"><i class="fa-solid fa-crown text-[9px]"></i> SUPER ADMIN</span>`
-            : `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30 flex items-center gap-1"><i class="fa-solid fa-user text-[9px]"></i> USER</span>`;
+        const isAdminU = u.role === 'ADMIN' || u.role === 'admin';
+        let roleBadge = '';
+        let avatarBg = 'bg-blue-600';
+        let userAvatar = u.avatar;
+
+        if (isSuper) {
+            roleBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1"><i class="fa-solid fa-crown text-[9px]"></i> SUPER ADMIN</span>`;
+            avatarBg = 'bg-amber-600';
+            if (!userAvatar) userAvatar = 'fa-user-shield';
+        } else if (isAdminU) {
+            roleBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1"><i class="fa-solid fa-user-gear text-[9px]"></i> ADMIN BIASA</span>`;
+            avatarBg = 'bg-emerald-600';
+            if (!userAvatar) userAvatar = 'fa-user-gear';
+        } else {
+            roleBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30 flex items-center gap-1"><i class="fa-solid fa-user text-[9px]"></i> USER</span>`;
+            avatarBg = 'bg-blue-600';
+            if (!userAvatar) userAvatar = 'fa-hard-hat';
+        }
 
         return `
             <div class="bg-slate-900 p-2.5 rounded-xl border border-slate-700/80 flex items-center justify-between gap-2">
                 <div class="flex items-center gap-2.5 overflow-hidden">
-                    <div class="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs flex-shrink-0 shadow ${isSuper ? 'bg-amber-600' : 'bg-blue-600'}">
-                        <i class="fa-solid ${u.avatar || (isSuper ? 'fa-user-shield' : 'fa-hard-hat')}"></i>
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs flex-shrink-0 shadow ${avatarBg}">
+                        <i class="fa-solid ${userAvatar}"></i>
                     </div>
                     <div class="truncate">
                         <div class="font-bold text-white text-xs truncate flex items-center gap-1.5">
@@ -560,7 +630,7 @@ async function loadUsersList() {
                     <div>${roleBadge}</div>
                     ${!isSelf ? `
                         <div class="flex items-center gap-1 border-l border-slate-700 pl-2">
-                            <button onclick="toggleUserRole('${u.id}', '${u.role}')" title="Ubah Role" class="p-1 rounded bg-slate-800 hover:bg-slate-700 text-amber-400 text-xs">
+                            <button onclick="toggleUserRole('${u.id}', '${u.role}')" title="Ubah Role (User -> Admin -> Super Admin)" class="p-1 rounded bg-slate-800 hover:bg-slate-700 text-amber-400 text-xs">
                                 <i class="fa-solid fa-arrows-rotate"></i>
                             </button>
                             <button onclick="deleteUserAccount('${u.id}', '${escapeHtml(u.username)}')" title="Hapus Akun" class="p-1 rounded bg-slate-800 hover:bg-red-900/60 text-red-400 text-xs">
@@ -636,7 +706,7 @@ async function handleCreateUser(event) {
             password,
             name: name || username,
             role,
-            avatar: role === 'SUPER_ADMIN' ? 'fa-user-shield' : 'fa-hard-hat',
+            avatar: role === 'SUPER_ADMIN' ? 'fa-user-shield' : (role === 'ADMIN' ? 'fa-user-gear' : 'fa-hard-hat'),
             createdAt: new Date().toISOString()
         };
         localUsers.push(newUser);
@@ -651,11 +721,15 @@ async function handleCreateUser(event) {
 }
 
 /**
- * Ubah role user (SUPER_ADMIN <-> USER)
+ * Ubah role user (USER -> ADMIN -> SUPER_ADMIN -> USER)
  */
 async function toggleUserRole(userId, currentRole) {
     if (!isSuperAdmin()) return;
-    const newRole = currentRole === 'SUPER_ADMIN' ? 'USER' : 'SUPER_ADMIN';
+    let newRole = 'USER';
+    if (currentRole === 'USER' || currentRole === 'user') newRole = 'ADMIN';
+    else if (currentRole === 'ADMIN' || currentRole === 'admin') newRole = 'SUPER_ADMIN';
+    else if (currentRole === 'SUPER_ADMIN') newRole = 'USER';
+
     if (!confirm(`Ubah role pengguna ini menjadi "${newRole}"?`)) return;
 
     try {
@@ -681,7 +755,7 @@ async function toggleUserRole(userId, currentRole) {
         const u = localUsers.find(x => x.id === userId);
         if (u) {
             u.role = newRole;
-            u.avatar = newRole === 'SUPER_ADMIN' ? 'fa-user-shield' : 'fa-hard-hat';
+            u.avatar = newRole === 'SUPER_ADMIN' ? 'fa-user-shield' : (newRole === 'ADMIN' ? 'fa-user-gear' : 'fa-hard-hat');
             saveStoredLocalUsers(localUsers);
             showToast(`Role berhasil diubah menjadi ${newRole}`);
             loadUsersList();

@@ -1,12 +1,21 @@
 [
   {
     "id": "usr_superadmin_01",
-    "username": "admin",
-    "password": "admin123",
-    "name": "Super Admin",
+    "username": "jaffier",
+    "password": "jaff0808",
+    "name": "Jaffier (Super Admin)",
     "role": "SUPER_ADMIN",
     "avatar": "fa-user-shield",
-    "createdAt": "2026-10-14T09:14:47.344Z"
+    "createdAt": "2026-10-15T00:00:00.000Z"
+  },
+  {
+    "id": "usr_admin_01",
+    "username": "admin",
+    "password": "admin123",
+    "name": "Admin Jaringan",
+    "role": "ADMIN",
+    "avatar": "fa-user-gear",
+    "createdAt": "2026-10-15T00:00:00.000Z"
   },
   {
     "id": "usr_teknisi_01",
@@ -15,6 +24,6 @@
     "name": "Teknisi Lapangan",
     "role": "USER",
     "avatar": "fa-hard-hat",
-    "createdAt": "2026-10-14T09:14:47.349Z"
+    "createdAt": "2026-10-15T00:00:00.000Z"
   }
 ]

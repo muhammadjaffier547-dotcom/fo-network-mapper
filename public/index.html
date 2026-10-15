@@ -635,7 +635,7 @@
 
                 <div class="p-2.5 rounded-lg bg-slate-800/60 border border-slate-700/60 text-slate-400 text-[11px] flex items-start gap-2 leading-relaxed">
                     <i class="fa-solid fa-circle-info text-blue-400 mt-0.5 flex-shrink-0"></i>
-                    <span>Masukkan username dan password akun Anda untuk masuk sebagai <b>Super Admin</b> atau <b>User (Read-Only)</b>.</span>
+                    <span>Masukkan username dan password akun Anda untuk masuk sebagai <b>Super Admin</b>, <b>Admin Biasa</b>, atau <b>User (Read-Only)</b>.</span>
                 </div>
             </div>
 
@@ -692,7 +692,8 @@
                                 <label class="text-[11px] text-slate-300 block mb-0.5">Role / Hak Akses</label>
                                 <select id="new-user-role" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white text-xs focus:outline-none focus:border-blue-500">
                                     <option value="USER">USER (Read-Only Teknisi)</option>
-                                    <option value="SUPER_ADMIN">SUPER ADMIN (Full Akses)</option>
+                                    <option value="ADMIN">ADMIN (Editor Jaringan - Tanpa Akses Reset)</option>
+                                    <option value="SUPER_ADMIN">SUPER ADMIN (Full Akses + Reset Database)</option>
                                 </select>
                             </div>
                         </div>
@@ -879,16 +880,34 @@
                                 <i class="fa-solid fa-crown"></i>
                             </span>
                             <div>
-                                <h4 class="font-bold text-white text-xs">SUPER ADMIN (Full Akses)</h4>
-                                <p class="text-[10px] text-amber-400 font-medium">Kewenangan Penuh Pengelola Jaringan</p>
+                                <h4 class="font-bold text-white text-xs">SUPER ADMIN (Full Akses + Reset Database)</h4>
+                                <p class="text-[10px] text-amber-400 font-medium">Kewenangan Tertinggi Pemilik Jaringan (Username: jaffier)</p>
                             </div>
                         </div>
                         <ul class="text-slate-300 text-[11px] space-y-1 pl-4 list-disc">
                             <li>Bisa menambah, mengedit, dan menghapus titik & kabel FO.</li>
                             <li>Bisa merelokasi dan menggeser belokan kabel di peta.</li>
                             <li>Bisa mengunggah dan menghapus foto dokumentasi tiang/closure.</li>
-                            <li>Bisa membuat akun teknisi baru dan mengatur role pengguna.</li>
-                            <li>Bisa memuat ulang project dari file backup JSON (*Load JSON*).</li>
+                            <li><b>Khusus Super Admin:</b> Satu-satunya role yang memiliki tombol merah <b>Reset Database</b> untuk membersihkan seluruh data.</li>
+                            <li><b>Khusus Super Admin:</b> Kelola akun pengguna (buat Admin baru, Teknisi, atau ganti role).</li>
+                        </ul>
+                    </div>
+
+                    <div class="bg-slate-800/70 p-3.5 rounded-xl border border-emerald-500/40 space-y-2">
+                        <div class="flex items-center gap-2">
+                            <span class="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-sm font-bold border border-emerald-500/40">
+                                <i class="fa-solid fa-user-gear"></i>
+                            </span>
+                            <div>
+                                <h4 class="font-bold text-white text-xs">ADMIN (Admin Biasa / Editor Jaringan)</h4>
+                                <p class="text-[10px] text-emerald-400 font-medium">Operasional Harian Pemetaan Tanpa Risiko Reset (Username: admin)</p>
+                            </div>
+                        </div>
+                        <ul class="text-slate-300 text-[11px] space-y-1 pl-4 list-disc">
+                            <li>Bisa menambah, mengedit, dan menghapus titik tiang, closure, ODP, dan jalur kabel FO.</li>
+                            <li>Bisa mengedit rute belokan kabel dan mengunggah foto lapangan.</li>
+                            <li>Bisa mengekspor data ke KMZ / GeoJSON / CSV / JSON.</li>
+                            <li><b>Aman:</b> Tombol Reset Database disembunyikan dan diblokir total, mencegah penghapusan data secara tidak sengaja!</li>
                         </ul>
                     </div>
 
@@ -899,7 +918,7 @@
                             </span>
                             <div>
                                 <h4 class="font-bold text-white text-xs">USER (Read-Only Teknisi Lapangan)</h4>
-                                <p class="text-[10px] text-blue-400 font-medium">Monitoring & Penanganan Gangguan Aman</p>
+                                <p class="text-[10px] text-blue-400 font-medium">Monitoring & Penanganan Gangguan Aman (Username: teknisi)</p>
                             </div>
                         </div>
                         <ul class="text-slate-300 text-[11px] space-y-1 pl-4 list-disc">
