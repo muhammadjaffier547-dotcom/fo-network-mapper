@@ -217,8 +217,12 @@ async function handleNodePhotoUpload(event) {
             }
         }
 
+        // Kompres gambar terlebih dahulu
         const compressed = await compressImage(f);
-        pendingNodePhotos.push(compressed);
+
+        // Simpan base64 sementara di preview (untuk tampilkan instan)
+        // Saat simpan node, akan di-upload ke GitHub Repo otomatis
+        pendingNodePhotos.push({ dataUrl: compressed, uploaded: false, url: null });
     }
     renderPendingNodePhotos();
     event.target.value = '';
@@ -229,14 +233,19 @@ function renderPendingNodePhotos() {
     if (countEl) countEl.innerText = `${pendingNodePhotos.length} foto`;
     const previewEl = document.getElementById('node-photo-preview');
     if (!previewEl) return;
-    previewEl.innerHTML = pendingNodePhotos.map((src, idx) => `
+    previewEl.innerHTML = pendingNodePhotos.map((photo, idx) => {
+        const src = (typeof photo === 'string') ? photo : (photo.url || photo.dataUrl || photo);
+        const isUploading = (typeof photo === 'object' && photo.uploaded === false && photo.url);
+        return `
         <div class="relative group w-12 h-12 rounded-lg overflow-hidden border border-slate-700 bg-slate-800">
             <img src="${src}" class="w-full h-full object-cover cursor-pointer" onclick="openLightbox('${src}', 'Foto Titik (Baru)')">
+            ${isUploading ? '<div class="absolute inset-0 bg-black/50 flex items-center justify-center"><i class="fa-solid fa-cloud-arrow-up text-white text-xs animate-pulse"></i></div>' : ''}
             <button onclick="removePendingNodePhoto(${idx})" class="absolute top-0.5 right-0.5 bg-red-600 hover:bg-red-500 text-white w-4 h-4 rounded-full flex items-center justify-center text-[10px] shadow">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
-    `).join('');
+    `;
+    }).join('');
 }
 
 function removePendingNodePhoto(idx) {
@@ -254,7 +263,7 @@ async function handleCablePhotoUpload(event) {
     for (const f of files) {
         if (!f.type.startsWith('image/')) continue;
         const compressed = await compressImage(f);
-        pendingCablePhotos.push(compressed);
+        pendingCablePhotos.push({ dataUrl: compressed, uploaded: false, url: null });
     }
     renderPendingCablePhotos();
     event.target.value = '';
@@ -265,14 +274,17 @@ function renderPendingCablePhotos() {
     if (countEl) countEl.innerText = `${pendingCablePhotos.length} foto`;
     const previewEl = document.getElementById('cable-photo-preview');
     if (!previewEl) return;
-    previewEl.innerHTML = pendingCablePhotos.map((src, idx) => `
+    previewEl.innerHTML = pendingCablePhotos.map((photo, idx) => {
+        const src = (typeof photo === 'string') ? photo : (photo.url || photo.dataUrl || photo);
+        return `
         <div class="relative group w-12 h-12 rounded-lg overflow-hidden border border-slate-700 bg-slate-800">
             <img src="${src}" class="w-full h-full object-cover cursor-pointer" onclick="openLightbox('${src}', 'Foto Jalur (Baru)')">
             <button onclick="removePendingCablePhoto(${idx})" class="absolute top-0.5 right-0.5 bg-red-600 hover:bg-red-500 text-white w-4 h-4 rounded-full flex items-center justify-center text-[10px] shadow">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
-    `).join('');
+    `;
+    }).join('');
 }
 
 function removePendingCablePhoto(idx) {
@@ -303,9 +315,13 @@ function renderPhotoThumbnails(photos, title = '') {
                 <i class="fa-solid fa-camera text-blue-600"></i> Dokumentasi Foto (${photos.length})
             </div>
             <div class="flex gap-1.5 overflow-x-auto py-1">
-                ${photos.map((src, idx) => `
-                    <img src="${src}" alt="Foto ${idx+1}" onclick="openLightbox('${src}', '${escapeHtml(title)} - Dokumentasi Foto ${idx+1}')" class="w-12 h-12 rounded-lg object-cover border border-slate-300 hover:border-blue-500 cursor-pointer shadow-sm hover:scale-105 transition flex-shrink-0">
-                `).join('')}
+                ${photos.map((photo, idx) => {
+                    // Support old base64 strings dan new URL format
+                    const src = (typeof photo === 'string') ? photo : (photo.url || photo.dataUrl || '');
+                    if (!src) return '';
+                    const escapedTitle = escapeHtml(title);
+                    return `<img src="${src}" alt="Foto ${idx+1}" onclick="openLightbox('${src}', '${escapedTitle} - Dokumentasi Foto ${idx+1}')" class="w-12 h-12 rounded-lg object-cover border border-slate-300 hover:border-blue-500 cursor-pointer shadow-sm hover:scale-105 transition flex-shrink-0" loading="lazy">`;
+                }).join('')}
             </div>
         </div>
     `;
@@ -590,7 +606,7 @@ function createNode(lat, lng, customName = null, customType = null, customNote =
     const name = customName || nameInput || `${type}-${String(autoNumber).padStart(2, '0')}`;
     const note = customNote !== null ? customNote : (document.getElementById('node-note').value.trim() || '-');
     const description = customDesc !== null ? customDesc : (document.getElementById('node-desc').value.trim() || '');
-    const photos = customPhotos !== null ? customPhotos : [...pendingNodePhotos];
+    const rawPhotos = customPhotos !== null ? customPhotos : [...pendingNodePhotos];
 
     const newNode = {
         id: 'node_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
@@ -598,7 +614,7 @@ function createNode(lat, lng, customName = null, customType = null, customNote =
         type,
         note,
         description,
-        photos,
+        photos: [], // will be filled after upload
         lat: parseFloat(lat),
         lng: parseFloat(lng)
     };
@@ -612,7 +628,9 @@ function createNode(lat, lng, customName = null, customType = null, customNote =
     document.getElementById('node-desc').value = '';
     pendingNodePhotos = [];
     renderPendingNodePhotos();
-    saveAndRefresh();
+
+    // Upload foto ke GitHub Repo (Opsi 1: Kapasitas 1-5 GB)
+    uploadPhotosAndSave(rawPhotos, newNode, 'node');
 }
 
 function addNodeFromInput() {
@@ -884,7 +902,7 @@ function finishDrawingCable() {
     const autoNumber = cables.length + 1;
     const name = document.getElementById('cable-name').value.trim() || `Jalur FO-${String(autoNumber).padStart(2, '0')}`;
     const description = document.getElementById('cable-desc').value.trim() || '';
-    const photos = [...pendingCablePhotos];
+    const rawPhotos = [...pendingCablePhotos];
 
     const rawDist = calculatePolylineDistance(activeCablePoints);
     const totalDist = rawDist * (1 + slackPercent / 100);
@@ -905,7 +923,7 @@ function finishDrawingCable() {
         color,
         slackPercent,
         description,
-        photos,
+        photos: [], // will be filled after upload
         rawDistance: Math.round(rawDist),
         totalDistance: Math.round(totalDist),
         points: [...activeCablePoints]
@@ -924,8 +942,10 @@ function finishDrawingCable() {
     pendingCablePhotos = [];
     renderPendingCablePhotos();
     resetTempCable();
-    saveAndRefresh();
     setMode('pan');
+
+    // Upload foto ke GitHub Repo (Opsi 1: Kapasitas 1-5 GB)
+    uploadPhotosAndSave(rawPhotos, newCable, 'cable');
 }
 
 function resetTempCable() {
@@ -1286,7 +1306,7 @@ async function handleEditPhotoUpload(event) {
         }
 
         const compressed = await compressImage(f);
-        editingPhotos.push(compressed);
+        editingPhotos.push({ dataUrl: compressed, uploaded: false, url: null });
     }
     renderEditPhotos();
     event.target.value = '';
@@ -1297,14 +1317,17 @@ function renderEditPhotos() {
     if (countEl) countEl.innerText = `${editingPhotos.length} foto`;
     const gallery = document.getElementById('edit-photo-gallery');
     if (!gallery) return;
-    gallery.innerHTML = editingPhotos.map((src, idx) => `
+    gallery.innerHTML = editingPhotos.map((photo, idx) => {
+        const src = (typeof photo === 'string') ? photo : (photo.url || photo.dataUrl || '');
+        return `
         <div class="relative group w-14 h-14 rounded-lg overflow-hidden border border-slate-700 bg-slate-800 shadow">
-            <img src="${src}" class="w-full h-full object-cover cursor-pointer" onclick="openLightbox('${src}', 'Dokumentasi Foto ${idx+1}')">
+            <img src="${src}" class="w-full h-full object-cover cursor-pointer" onclick="openLightbox('${src}', 'Dokumentasi Foto ${idx+1}')" loading="lazy">
             <button onclick="removeEditPhoto(${idx})" title="Hapus Foto" class="absolute top-0.5 right-0.5 bg-red-600 hover:bg-red-500 text-white w-4 h-4 rounded-full flex items-center justify-center text-[10px] shadow">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
-    `).join('');
+    `;
+    }).join('');
 }
 
 function removeEditPhoto(idx) {
@@ -1322,6 +1345,11 @@ function saveEditData() {
         closeEditModal();
         return;
     }
+
+    // Photos currently already uploaded (strings) stay as is; new ones (objects with dataUrl) will be uploaded
+    const newPhotos = editingPhotos.filter(p => typeof p === 'object' && p.dataUrl && !p.url);
+    const existingPhotos = editingPhotos.filter(p => typeof p === 'string' || (typeof p === 'object' && p.url));
+
     if (currentEditingType === 'node') {
         const node = nodes.find(n => n.id === currentEditingId);
         if (node) {
@@ -1329,10 +1357,17 @@ function saveEditData() {
             node.type = document.getElementById('edit-node-type').value;
             node.note = document.getElementById('edit-node-note').value.trim() || '-';
             node.description = document.getElementById('edit-node-desc').value.trim() || '';
-            node.photos = [...editingPhotos];
+            // Keep existing photos, new ones will be uploaded
+            node.photos = existingPhotos.map(p => typeof p === 'string' ? p : p.url);
             renderNodeMarker(node);
             if (typeof logActivity === 'function') {
                 logActivity('node_update', `Edit Titik: ${node.name}`, `Tipe: ${node.type} • Catatan: ${node.note}`);
+            }
+            // Upload new photos if any
+            if (newPhotos.length > 0) {
+                uploadPhotosAndSave(newPhotos, node, 'node');
+            } else {
+                saveAndRefresh();
             }
         }
     } else if (currentEditingType === 'cable') {
@@ -1348,16 +1383,19 @@ function saveEditData() {
             cable.toBuilding = (document.getElementById('edit-cable-to')?.value || '').trim();
             cable.powerSource = (document.getElementById('edit-cable-power')?.value || '').trim();
             cable.powerNotes = (document.getElementById('edit-cable-power-notes')?.value || '').trim();
-            cable.photos = [...editingPhotos];
+            cable.photos = existingPhotos.map(p => typeof p === 'string' ? p : p.url);
             cable.totalDistance = Math.round(cable.rawDistance * (1 + cable.slackPercent / 100));
             renderCablePolyline(cable);
             if (typeof logActivity === 'function') {
                 logActivity('cable_update', `Edit Data Kabel: ${cable.name}`, `Kapasitas: ${cable.coreSpec} • Total Panjang: ${cable.totalDistance}m`);
             }
+            if (newPhotos.length > 0) {
+                uploadPhotosAndSave(newPhotos, cable, 'cable');
+            } else {
+                saveAndRefresh();
+            }
         }
     }
-    saveAndRefresh();
-    closeEditModal();
 }
 
 function closeEditModal() {
@@ -1367,7 +1405,84 @@ function closeEditModal() {
     editingPhotos = [];
 }
 
-// --- 7. RENDER UI & PENYIMPANAN LOKAL ---
+/**
+ * uploadPhotosAndSave — Upload foto ke GitHub Repo (Opsi 1: 1–5 GB)
+ * Foto-foto yang masih berupa base64 di-upload ke /uploads/photos/ di GitHub Repo.
+ * Setelah upload selesai, URL foto digantikan ke titik/kabel lalu disimpan ke Cloud.
+ * @param {Array} photosToUpload - Array foto baru [{dataUrl, uploaded, url}]
+ * @param {Object} targetObj - Node atau Cable object yang akan di-update
+ * @param {string} targetType - 'node' | 'cable'
+ */
+async function uploadPhotosAndSave(photosToUpload, targetObj, targetType) {
+    if (!photosToUpload || photosToUpload.length === 0) {
+        saveAndRefresh();
+        if (currentEditingType) closeEditModal();
+        return;
+    }
+
+    const UPLOAD_API = (typeof window !== 'undefined' && window.location && window.location.origin && !window.location.origin.includes('localhost'))
+        ? `${window.location.origin}/api/upload`
+        : 'https://fo-network-mapper.vercel.app/api/upload';
+
+    if (typeof showToast === 'function') {
+        showToast(`☁️ Mengunggah ${photosToUpload.length} foto ke server... Mohon tunggu.`);
+    }
+
+    const uploadedUrls = [];
+
+    for (let i = 0; i < photosToUpload.length; i++) {
+        const photo = photosToUpload[i];
+        try {
+            const imageData = (typeof photo === 'string') ? photo : (photo.dataUrl || photo);
+            const ext = imageData.includes('data:image/png') ? 'png' : 'jpg';
+            const ts = Date.now() + i;
+            const rnd = Math.random().toString(36).substr(2, 5);
+            const safeId = (targetObj.id || 'foto').replace(/[^a-zA-Z0-9_-]/g, '_').substr(0, 20);
+            const filename = `foto_${safeId}_${ts}_${rnd}.${ext}`;
+
+            const res = await fetch(UPLOAD_API, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    image: imageData,
+                    filename: filename,
+                    nodeId: targetObj.id
+                })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                uploadedUrls.push(data.url);
+            } else {
+                // Fallback: simpan dataUrl langsung jika upload gagal
+                console.warn('[PhotoUpload] Upload gagal untuk foto', i + 1, '- menggunakan dataUrl lokal');
+                uploadedUrls.push(imageData);
+            }
+        } catch (err) {
+            console.warn('[PhotoUpload] Error upload foto:', err.message);
+            const fallbackData = (typeof photo === 'string') ? photo : (photo.dataUrl || photo);
+            uploadedUrls.push(fallbackData);
+        }
+    }
+
+    // Gabungkan foto yang sudah diupload sebelumnya + foto baru yang baru di-upload
+    const existingUrls = (targetObj.photos || []).filter(p => {
+        if (typeof p === 'string') return true;
+        if (typeof p === 'object' && p.url) return true;
+        return false;
+    }).map(p => (typeof p === 'string') ? p : p.url);
+
+    targetObj.photos = [...existingUrls, ...uploadedUrls];
+
+    if (typeof showToast === 'function') {
+        showToast(`✅ ${uploadedUrls.length} foto berhasil tersimpan di Cloud Storage (1–5 GB)!`);
+    }
+
+    saveAndRefresh();
+    if (currentEditingType) closeEditModal();
+}
+
+
 function saveAndRefresh() {
     window.nodes = nodes;
     window.cables = cables;
