@@ -108,9 +108,16 @@ async function pullDataFromCloud(isManual = false) {
     if (isManual) renderCloudSyncPill('syncing', 'Memeriksa Cloud...');
 
     try {
-        const res = await fetch(CLOUD_SYNC_DATA_URL, {
+        // Cache buster timestamp untuk mencegah browser menyimpan cache lama
+        const fetchUrl = `${CLOUD_SYNC_DATA_URL}?_cb=${Date.now()}`;
+        const res = await fetch(fetchUrl, {
             method: 'GET',
-            headers: { 'Accept': 'application/json' }
+            cache: 'no-store',
+            headers: {
+                'Accept': 'application/json',
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache'
+            }
         });
 
         if (!res.ok) {
@@ -121,8 +128,8 @@ async function pullDataFromCloud(isManual = false) {
 
         const cloudData = await res.json();
         const localUpdatedAt = localStorage.getItem('fo_mapper_updated_at') || '';
-        const currentNodes = (typeof nodes !== 'undefined') ? nodes : (window.nodes || []);
-        const currentCables = (typeof cables !== 'undefined') ? cables : (window.cables || []);
+        const currentNodes = (typeof window.nodes !== 'undefined' && Array.isArray(window.nodes)) ? window.nodes : [];
+        const currentCables = (typeof window.cables !== 'undefined' && Array.isArray(window.cables)) ? window.cables : [];
 
         const cloudHasData = cloudData && ((cloudData.nodes && cloudData.nodes.length > 0) || (cloudData.cables && cloudData.cables.length > 0));
         const localHasData = (currentNodes.length > 0 || currentCables.length > 0);
@@ -133,6 +140,7 @@ async function pullDataFromCloud(isManual = false) {
             await pushDataToCloud({
                 nodes: currentNodes,
                 cables: currentCables,
+                activityLogs: (typeof window.activityLogs !== 'undefined') ? window.activityLogs : [],
                 updatedAt: new Date().toISOString(),
                 updatedBy: (typeof getCurrentUser === 'function' && getCurrentUser()) ? getCurrentUser().name : 'Admin'
             });
@@ -140,7 +148,7 @@ async function pullDataFromCloud(isManual = false) {
             return;
         }
 
-        // SKENARIO 2: Cloud memiliki data dan berbeda dari lokal atau lebih baru -> Terapkan ke Peta!
+        // SKENARIO 2: Cloud memiliki data dan berbeda dari lokal atau sinkronisasi manual -> Terapkan ke Peta!
         if (cloudHasData) {
             const isDifferent = (cloudData.updatedAt && cloudData.updatedAt !== localUpdatedAt) ||
                                 (currentNodes.length !== cloudData.nodes.length) ||
@@ -148,43 +156,22 @@ async function pullDataFromCloud(isManual = false) {
                                 isManual;
 
             if (isDifferent) {
-                console.log(`[CloudSync] Data baru terdeteksi dari Cloud (${cloudData.nodes.length} titik, ${cloudData.cables.length} kabel). Memperbarui tampilan peta...`);
+                console.log(`[CloudSync] Data baru diterima dari Cloud (${cloudData.nodes.length} titik, ${cloudData.cables.length} kabel). Memperbarui tampilan peta...`);
                 
-                // Hapus layer lama di Leaflet
-                if (typeof nodeMarkers !== 'undefined' && typeof map !== 'undefined' && map) {
-                    Object.values(nodeMarkers).forEach(m => map.removeLayer(m));
-                    nodeMarkers = {};
-                }
-                if (typeof cablePolylines !== 'undefined' && typeof map !== 'undefined' && map) {
-                    Object.values(cablePolylines).forEach(p => map.removeLayer(p));
-                    cablePolylines = {};
+                // Gunakan setter terpusat di app.js yang terhubung langsung ke Leaflet & internal arrays
+                if (typeof window.setNetworkData === 'function') {
+                    // Geser kamera jika ini pemuatan awal (currentNodes kosong) atau tombol manual ditekan
+                    const shouldFit = isManual || (currentNodes.length === 0);
+                    window.setNetworkData(cloudData.nodes, cloudData.cables, cloudData.activityLogs, shouldFit);
                 }
 
-                // Perbarui array data
-                nodes = Array.isArray(cloudData.nodes) ? cloudData.nodes : [];
-                cables = Array.isArray(cloudData.cables) ? cloudData.cables : [];
-                if (Array.isArray(cloudData.activityLogs)) {
-                    activityLogs = cloudData.activityLogs;
-                    window.activityLogs = activityLogs;
-                    if (typeof renderActivityLogList === 'function') renderActivityLogList();
-                }
-                window.nodes = nodes;
-                window.cables = cables;
-
-                // Render ulang marker dan polyline
-                if (typeof renderNodeMarker === 'function') nodes.forEach(renderNodeMarker);
-                if (typeof renderCablePolyline === 'function') cables.forEach(renderCablePolyline);
-
-                // Perbarui localStorage cache lokal
-                const currentLogs = (typeof activityLogs !== 'undefined') ? activityLogs : [];
-                localStorage.setItem('fo_mapper_data', JSON.stringify({ nodes, cables, activityLogs: currentLogs }));
                 lastKnownCloudUpdatedAt = cloudData.updatedAt || new Date().toISOString();
                 localStorage.setItem('fo_mapper_updated_at', lastKnownCloudUpdatedAt);
 
-                if (typeof updateUI === 'function') updateUI();
-
                 if (isManual && typeof showToast === 'function') {
-                    showToast(`☁️ Sinkronisasi berhasil! ${nodes.length} Titik & ${cables.length} Jalur Kabel aktif.`);
+                    showToast(`☁️ Sinkronisasi berhasil! ${cloudData.nodes.length} Titik & ${cloudData.cables.length} Jalur Kabel aktif.`);
+                } else if (typeof showToast === 'function' && isDifferent && currentNodes.length !== cloudData.nodes.length) {
+                    showToast(`☁️ Update Cloud diterima: ${cloudData.nodes.length} Titik & ${cloudData.cables.length} Jalur Kabel.`);
                 }
             }
         }
@@ -251,19 +238,24 @@ function initCloudSync() {
     setTimeout(() => {
         pullDataFromCloud(false);
         syncUsersWithCloud();
-    }, 600);
+    }, 100);
 
-    // Polling otomatis setiap 12 detik saat jendela browser aktif
+    // Polling otomatis setiap 8 detik saat jendela browser aktif
     if (cloudSyncTimer) clearInterval(cloudSyncTimer);
     cloudSyncTimer = setInterval(() => {
         if (!document.hidden && navigator.onLine) {
             pullDataFromCloud(false);
         }
-    }, 12000);
+    }, 8000);
 
-    // Auto-sync saat kembali ke tab atau saat internet kembali menyala
+    // Auto-sync saat kembali ke tab atau layar HP dibuka kembali
     window.addEventListener('focus', () => {
         pullDataFromCloud(false);
+    });
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            pullDataFromCloud(false);
+        }
     });
     window.addEventListener('online', () => {
         pullDataFromCloud(false);

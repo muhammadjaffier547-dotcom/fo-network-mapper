@@ -2015,6 +2015,71 @@ function clearAllData(confirmAsk = true) {
     }
 }
 
+function setNetworkData(newNodes, newCables, newLogs = null, shouldFitBounds = true) {
+    // 1. Bersihkan seluruh layer Leaflet yang ada saat ini
+    if (typeof nodeMarkers !== 'undefined' && nodeMarkers) {
+        Object.values(nodeMarkers).forEach(m => {
+            try { if (map && map.hasLayer(m)) map.removeLayer(m); } catch (e) {}
+        });
+    }
+    if (typeof cablePolylines !== 'undefined' && cablePolylines) {
+        Object.values(cablePolylines).forEach(p => {
+            try { if (map && map.hasLayer(p)) map.removeLayer(p); } catch (e) {}
+        });
+    }
+    nodeMarkers = {};
+    cablePolylines = {};
+
+    // 2. Pasang data baru
+    nodes = Array.isArray(newNodes) ? newNodes : [];
+    cables = Array.isArray(newCables) ? newCables : [];
+    if (newLogs && Array.isArray(newLogs)) {
+        activityLogs = newLogs;
+        window.activityLogs = activityLogs;
+        if (typeof renderActivityLogList === 'function') renderActivityLogList();
+    }
+
+    window.nodes = nodes;
+    window.cables = cables;
+    window.nodeMarkers = nodeMarkers;
+    window.cablePolylines = cablePolylines;
+
+    // 3. Render marker & kabel baru
+    nodes.forEach(renderNodeMarker);
+    cables.forEach(renderCablePolyline);
+    updateUI();
+
+    // 4. Perbarui cache lokal
+    try {
+        const currentLogs = (typeof activityLogs !== 'undefined') ? activityLogs : [];
+        localStorage.setItem('fo_mapper_data', JSON.stringify({ nodes, cables, activityLogs: currentLogs }));
+    } catch (e) {}
+
+    // 5. Geser & zoom kamera peta agar langsung mengarah ke titik / kabel yang ada
+    if (shouldFitBounds && map) {
+        const allPoints = [];
+        nodes.forEach(n => {
+            if (!isNaN(n.lat) && !isNaN(n.lng)) allPoints.push([n.lat, n.lng]);
+        });
+        cables.forEach(c => {
+            if (Array.isArray(c.points)) {
+                c.points.forEach(pt => {
+                    if (Array.isArray(pt) && !isNaN(pt[0]) && !isNaN(pt[1])) allPoints.push(pt);
+                });
+            }
+        });
+        if (allPoints.length > 0) {
+            try {
+                const bounds = L.latLngBounds(allPoints);
+                if (bounds.isValid()) {
+                    map.fitBounds(bounds.pad(0.25), { maxZoom: 17, animate: true });
+                }
+            } catch (e) {}
+        }
+    }
+}
+window.setNetworkData = setNetworkData;
+
 // Load saved data on startup
 (function init() {
     window.nodes = nodes;

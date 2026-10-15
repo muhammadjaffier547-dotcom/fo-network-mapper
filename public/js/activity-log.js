@@ -428,3 +428,4 @@ if (typeof window !== 'undefined') {
     window.exportActivityLogsCSV = exportActivityLogsCSV;
     window.clearAllActivityLogs = clearAllActivityLogs;
 }
+
