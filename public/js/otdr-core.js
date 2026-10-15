@@ -185,17 +185,19 @@ function openCoreMatrixModal(cableId) {
 
     document.getElementById('core-matrix-cable-id').value = cable.id;
     document.getElementById('core-matrix-title').innerText = `Manajemen Tube & Core: ${cable.name}`;
-    document.getElementById('core-matrix-subtitle').innerText = `Kapasitas: ${cable.coreSpec} | Standar Kode Warna TIA/EIA-598`;
+    const cpt = (typeof currentCoresPerTube === 'number') ? currentCoresPerTube : 6;
+    document.getElementById('core-matrix-subtitle').innerText = `Kapasitas: ${cable.coreSpec} | Standar ${cpt} Core per Tube`;
 
     const totalCores = parseCoreCount(cable.coreSpec);
-    const numTubes = Math.max(1, Math.ceil(totalCores / 12));
+    const numTubes = Math.max(1, Math.ceil(totalCores / cpt));
 
-    // Inisialisasi struktur core data jika belum ada
-    if (!cable.cores || cable.cores.length !== totalCores) {
+    // Inisialisasi struktur core data jika belum ada atau konfigurasi cpt berubah
+    if (!cable.cores || cable.cores.length !== totalCores || cable.coresPerTube !== cpt) {
         cable.cores = [];
+        cable.coresPerTube = cpt;
         for (let i = 1; i <= totalCores; i++) {
-            const colorIdx = (i - 1) % 12;
-            const tubeIdx = Math.floor((i - 1) / 12);
+            const colorIdx = (i - 1) % cpt;
+            const tubeIdx = Math.floor((i - 1) / cpt);
             cable.cores.push({
                 coreNum: i,
                 tubeNum: tubeIdx + 1,
@@ -220,7 +222,7 @@ function openCoreMatrixModal(cableId) {
                     <span class="w-4 h-4 rounded-full border shadow-sm" style="background:${tubeColor.hex}; border-color:${tubeColor.border}"></span>
                     <span class="font-bold text-xs text-white">Tube ${t + 1} (${tubeColor.name})</span>
                 </div>
-                <span class="text-[10px] text-slate-400">Core ${(t * 12) + 1} - ${Math.min((t + 1) * 12, totalCores)}</span>
+                <span class="text-[10px] text-slate-400">Core ${(t * cpt) + 1} - ${Math.min((t + 1) * cpt, totalCores)}</span>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-2" id="tube-${t + 1}-cores"></div>
         `;
@@ -322,17 +324,66 @@ function saveCoreMatrixData() {
 
 let currentSpliceNodeId = null;
 let spliceSearchQuery = '';
-let spliceFilterStatus = 'ALL';
+let currentCoresPerTube = 6;
+try {
+    const savedCpt = localStorage.getItem('fo_cores_per_tube');
+    if (savedCpt) currentCoresPerTube = parseInt(savedCpt) || 6;
+} catch (e) {
+    currentCoresPerTube = 6;
+}
 
-function getCoreColorInfo(coreNum) {
+function setCoresPerTube(val) {
+    currentCoresPerTube = parseInt(val) === 12 ? 12 : 6;
+    try {
+        localStorage.setItem('fo_cores_per_tube', currentCoresPerTube);
+    } catch (e) {}
+
+    const sel = document.getElementById('splice-cores-per-tube-select');
+    if (sel) sel.value = String(currentCoresPerTube);
+
+    const footerInfo = document.getElementById('splice-footer-info');
+    if (footerInfo) {
+        if (currentCoresPerTube === 6) {
+            footerInfo.innerText = 'Standar 6 Core per Tube (Biru, Oranye, Hijau, Cokelat, Abu, Putih berulang tiap tube)';
+        } else {
+            footerInfo.innerText = 'Standar 12 Core per Tube (TIA/EIA-598: Biru s/d Toska per tube)';
+        }
+    }
+
+    updateSplicePreviewColors();
+    const nList = (typeof nodes !== 'undefined' && Array.isArray(nodes)) ? nodes : (window.nodes || []);
+    const node = nList.find(n => n.id === currentSpliceNodeId);
+    if (node) renderNodeSpliceList(node);
+
+    if (typeof showToast === 'function') {
+        showToast(`Standar disetel ke ${currentCoresPerTube} Core per Tube`);
+    }
+}
+
+function getCoreColorInfo(coreNum, perTube = currentCoresPerTube) {
     const num = Math.max(1, parseInt(coreNum) || 1);
-    const colorIdx = ((num - 1) % 12);
-    const tubeNum = Math.floor((num - 1) / 12) + 1;
-    const color = TIA598_COLORS[colorIdx] || TIA598_COLORS[0];
+    const cpt = parseInt(perTube) === 12 ? 12 : 6;
+
+    // Tube index (0-indexed) & color
+    const tubeIdx = Math.floor((num - 1) / cpt);
+    const tubeNum = tubeIdx + 1;
+    const tubeColor = TIA598_COLORS[tubeIdx % 12] || TIA598_COLORS[0];
+
+    // Core color index within tube (0 to cpt-1)
+    const coreColorIdx = (num - 1) % cpt;
+    const coreColor = TIA598_COLORS[coreColorIdx] || TIA598_COLORS[0];
+
     return {
-        ...color,
         coreNum: num,
-        tubeNum: tubeNum
+        name: coreColor.name,
+        hex: coreColor.hex,
+        text: coreColor.text,
+        border: coreColor.border,
+        tubeNum: tubeNum,
+        tubeName: tubeColor.name,
+        tubeHex: tubeColor.hex,
+        tubeBorder: tubeColor.border,
+        coresPerTube: cpt
     };
 }
 
@@ -346,14 +397,16 @@ function updateSplicePreviewColors() {
         const infoA = getCoreColorInfo(coreAInput.value);
         previewA.innerHTML = `
             <span class="w-3.5 h-3.5 rounded-full border shadow-sm flex-shrink-0" style="background:${infoA.hex}; border-color:${infoA.border}"></span>
-            <span class="truncate font-semibold text-white">Core ${infoA.coreNum} (${infoA.name})</span>
+            <span class="truncate font-semibold text-white">Core ${infoA.coreNum} • ${infoA.name}</span>
+            <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-750 text-amber-300 font-semibold ml-auto border border-amber-500/30 whitespace-nowrap">Tube ${infoA.tubeName}</span>
         `;
     }
     if (coreBInput && previewB) {
         const infoB = getCoreColorInfo(coreBInput.value);
         previewB.innerHTML = `
             <span class="w-3.5 h-3.5 rounded-full border shadow-sm flex-shrink-0" style="background:${infoB.hex}; border-color:${infoB.border}"></span>
-            <span class="truncate font-semibold text-white">Core ${infoB.coreNum} (${infoB.name})</span>
+            <span class="truncate font-semibold text-white">Core ${infoB.coreNum} • ${infoB.name}</span>
+            <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-750 text-amber-300 font-semibold ml-auto border border-amber-500/30 whitespace-nowrap">Tube ${infoB.tubeName}</span>
         `;
     }
 }
@@ -404,6 +457,10 @@ function openNodeSplicingModal(nodeId) {
     const searchInput = document.getElementById('splice-search-input');
     if (searchInput) searchInput.value = '';
 
+    // Sinkronkan dropdown standar 6 core / 12 core per tube
+    const sel = document.getElementById('splice-cores-per-tube-select');
+    if (sel) sel.value = String(currentCoresPerTube);
+
     // Populate Datalist Autocomplete Kabel dari kabel aktif
     const datalist = document.getElementById('splice-cable-suggestions');
     if (datalist) {
@@ -415,9 +472,7 @@ function openNodeSplicingModal(nodeId) {
     // Role-based visibility
     const canWrite = typeof hasWritePermission === 'function' ? hasWritePermission() : false;
     const btnToggle = document.getElementById('btn-toggle-splice-form');
-    const btnQuick = document.getElementById('btn-quick-12-splice');
     if (btnToggle) btnToggle.classList.toggle('hidden', !canWrite);
-    if (btnQuick) btnQuick.classList.toggle('hidden', !canWrite);
 
     toggleSpliceInputForm(false);
     updateSplicePreviewColors();
@@ -582,11 +637,12 @@ function renderNodeSpliceList(node) {
                             ${infoA.coreNum}
                         </div>
                         <div class="truncate">
-                            <div class="font-bold text-white text-xs truncate">
-                                Core ${infoA.coreNum} (${infoA.name})
+                            <div class="font-bold text-white text-xs truncate flex items-center gap-1.5">
+                                <span>Core ${infoA.coreNum} (${infoA.name})</span>
+                                <span class="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-amber-300 border border-slate-700 font-medium">Tube ${infoA.tubeName}</span>
                             </div>
-                            <div class="text-[11px] text-blue-400 font-medium truncate" title="${escapeHtml(s.cableA || 'Kabel A')}">
-                                <i class="fa-solid fa-arrow-right-to-bracket text-[9px] mr-0.5"></i> ${escapeHtml(s.cableA || 'Kabel A')}
+                            <div class="text-[11px] text-blue-400 font-medium truncate" title="${escapeHtml(s.cableA || 'Kabel Masuk')}">
+                                <i class="fa-solid fa-arrow-right-to-bracket text-[9px] mr-0.5"></i> ${escapeHtml(s.cableA || 'Kabel Masuk')}
                             </div>
                         </div>
                     </div>
@@ -600,11 +656,12 @@ function renderNodeSpliceList(node) {
                     <!-- SISI B (Kabel Keluar) -->
                     <div class="flex items-center gap-2.5 min-w-0 flex-1 w-full sm:w-auto justify-end text-right">
                         <div class="truncate">
-                            <div class="font-bold text-white text-xs truncate">
-                                Core ${infoB.coreNum} (${infoB.name})
+                            <div class="font-bold text-white text-xs truncate flex items-center justify-end gap-1.5">
+                                <span class="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-amber-300 border border-slate-700 font-medium">Tube ${infoB.tubeName}</span>
+                                <span>Core ${infoB.coreNum} (${infoB.name})</span>
                             </div>
-                            <div class="text-[11px] text-emerald-400 font-medium truncate" title="${escapeHtml(s.cableB || 'Kabel B')}">
-                                ${escapeHtml(s.cableB || 'Kabel B')} <i class="fa-solid fa-arrow-right-from-bracket text-[9px] ml-0.5"></i>
+                            <div class="text-[11px] text-emerald-400 font-medium truncate" title="${escapeHtml(s.cableB || 'Kabel Keluar')}">
+                                ${escapeHtml(s.cableB || 'Kabel Keluar')} <i class="fa-solid fa-arrow-right-from-bracket text-[9px] ml-0.5"></i>
                             </div>
                         </div>
                         <div class="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shadow flex-shrink-0" 
@@ -681,7 +738,7 @@ function saveNewNodeSplice() {
     if (typeof showToast === 'function') {
         const infoA = getCoreColorInfo(coreA);
         const infoB = getCoreColorInfo(coreB);
-        showToast(`✅ Sambungan Core ${coreA} (${infoA.name}) ➔ Core ${coreB} (${infoB.name}) disimpan!`);
+        showToast(`✅ Sambungan Core ${coreA} (${infoA.name} - Tube ${infoA.tubeName}) ➔ Core ${coreB} (${infoB.name} - Tube ${infoB.tubeName}) disimpan!`);
     }
 }
 
@@ -702,11 +759,12 @@ function quickAutoSplice12() {
     const cableB = prompt('Masukkan nama Kabel B (Kabel Keluar):', defaultCableB);
     if (!cableB) return;
 
-    if (!confirm(`Buat otomatis 12 sambungan lurus (Core 1–12 "${cableA}" ➔ Core 1–12 "${cableB}")?`)) return;
+    const count = currentCoresPerTube || 6;
+    if (!confirm(`Buat otomatis ${count} sambungan lurus (Core 1–${count} "${cableA}" ➔ Core 1–${count} "${cableB}")?`)) return;
 
     if (!Array.isArray(node.splices)) node.splices = [];
 
-    for (let i = 1; i <= 12; i++) {
+    for (let i = 1; i <= count; i++) {
         const existing = node.splices.find(s => s.cableA === cableA && s.coreA === i && s.cableB === cableB && s.coreB === i);
         if (!existing) {
             node.splices.push({
@@ -717,7 +775,7 @@ function quickAutoSplice12() {
                 coreB: i,
                 status: 'aktif',
                 lossDb: '0.02',
-                note: 'Tray 1 (1:1)',
+                note: `Tube 1 (1:1)`,
                 updatedAt: new Date().toISOString()
             });
         }
@@ -727,7 +785,7 @@ function quickAutoSplice12() {
     renderNodeSpliceList(node);
 
     if (typeof showToast === 'function') {
-        showToast(`⚡ 12 Sambungan Core (1:1) berhasil dibuat otomatis!`);
+        showToast(`⚡ ${count} Sambungan Core (1:1) berhasil dibuat otomatis!`);
     }
 }
 
@@ -760,12 +818,12 @@ function exportNodeSplicesCSV() {
         return;
     }
 
-    let csvContent = 'No,Titik,Kabel_A,Core_A,Warna_A,Status,Loss_dB,Kabel_B,Core_B,Warna_B,Catatan_Note\n';
+    let csvContent = 'No,Titik,Kabel_A,Core_A,Warna_A,Tube_A,Status,Loss_dB,Kabel_B,Core_B,Warna_B,Tube_B,Catatan_Note\n';
     node.splices.forEach((s, idx) => {
         const infoA = getCoreColorInfo(s.coreA);
         const infoB = getCoreColorInfo(s.coreB);
         const cleanNote = (s.note || '').replace(/"/g, '""');
-        csvContent += `${idx + 1},"${node.name}","${s.cableA}",${s.coreA},"${infoA.name}","${s.status}","${s.lossDb || '0.02'}","${s.cableB}",${s.coreB},"${infoB.name}","${cleanNote}"\n`;
+        csvContent += `${idx + 1},"${node.name}","${s.cableA}",${s.coreA},"${infoA.name}","Tube ${infoA.tubeName}","${s.status}","${s.lossDb || '0.02'}","${s.cableB}",${s.coreB},"${infoB.name}","Tube ${infoB.tubeName}","${cleanNote}"\n`;
     });
 
     const filename = `Splicing_${(node.name || 'Titik').replace(/[^a-zA-Z0-9_-]/g, '_')}.csv`;
@@ -789,6 +847,7 @@ if (typeof window !== 'undefined') {
     window.updateSplicePreviewColors = updateSplicePreviewColors;
     window.setQuickCore = setQuickCore;
     window.syncCoreBWithA = syncCoreBWithA;
+    window.setCoresPerTube = setCoresPerTube;
     window.saveNewNodeSplice = saveNewNodeSplice;
     window.quickAutoSplice12 = quickAutoSplice12;
     window.deleteNodeSplice = deleteNodeSplice;
