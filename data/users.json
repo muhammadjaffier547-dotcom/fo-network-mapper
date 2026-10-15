@@ -2,7 +2,7 @@
   {
     "id": "usr_superadmin_01",
     "username": "jaffier",
-    "password": "jaff0808",
+    "password": "177881096f5b61de4a1693796b79fc74223c22f3a1e5194af7383baeae25bd30",
     "name": "Jaffier (Super Admin)",
     "role": "SUPER_ADMIN",
     "avatar": "fa-user-shield",
@@ -11,7 +11,7 @@
   {
     "id": "usr_admin_01",
     "username": "admin",
-    "password": "admin123",
+    "password": "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9",
     "name": "Admin Jaringan",
     "role": "ADMIN",
     "avatar": "fa-user-gear",
@@ -20,7 +20,7 @@
   {
     "id": "usr_teknisi_01",
     "username": "teknisi",
-    "password": "teknisi123",
+    "password": "89f4c09f0710cd9ccbb2dbf74df4f22c931902a9127965b5b6afd74937bf957d",
     "name": "Teknisi Lapangan",
     "role": "USER",
     "avatar": "fa-hard-hat",

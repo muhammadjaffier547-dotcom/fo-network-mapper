@@ -99,11 +99,18 @@ function deleteFromGitHub(filename, sha) {
     });
 }
 
+const SYSTEM_APP_KEY = process.env.FO_APP_SECRET || 'fo_sec_9x8k2m7q4p1w5v0z_2026';
+
+function isAuthorized(req) {
+    const key = req.headers['x-fo-app-key'] || req.query.key;
+    return key === SYSTEM_APP_KEY;
+}
+
 module.exports = async (req, res) => {
     // CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-fo-app-key');
     res.setHeader('Cache-Control', 'no-store, no-cache');
 
     if (req.method === 'OPTIONS') {
@@ -112,6 +119,11 @@ module.exports = async (req, res) => {
 
     // POST /api/upload — Upload satu foto baru
     if (req.method === 'POST') {
+        // Proteksi 1: Kunci otentikasi API
+        if (!isAuthorized(req)) {
+            return res.status(401).json({ error: 'Akses Ditolak: Diperlukan kunci otentikasi API yang sah untuk mengunggah file.' });
+        }
+
         try {
             let body = req.body;
             if (typeof body === 'string') body = JSON.parse(body);
@@ -128,11 +140,19 @@ module.exports = async (req, res) => {
                 base64Data = image.split(',')[1];
             }
 
+            // Proteksi 2: Batas ukuran file maksimal 5 MB
+            if (base64Data.length > 7 * 1024 * 1024) {
+                return res.status(413).json({ error: 'Ukuran foto melebihi batas maksimal 5 MB.' });
+            }
+
             // Deteksi ekstensi dari data URL header
             let ext = 'jpg';
             if (image.startsWith('data:image/png')) ext = 'png';
             else if (image.startsWith('data:image/webp')) ext = 'webp';
-            else if (image.startsWith('data:image/gif')) ext = 'gif';
+            else if (image.startsWith('data:image/jpeg') || image.startsWith('data:image/jpg')) ext = 'jpg';
+            else {
+                return res.status(400).json({ error: 'Format file tidak didukung. Hanya gambar (JPG, PNG, WebP) yang diizinkan.' });
+            }
 
             // Buat nama file unik dengan timestamp + random suffix
             const ts = Date.now();
@@ -156,6 +176,9 @@ module.exports = async (req, res) => {
 
     // DELETE /api/upload — Hapus satu foto (hanya Super Admin)
     if (req.method === 'DELETE') {
+        if (!isAuthorized(req)) {
+            return res.status(401).json({ error: 'Akses Ditolak: Diperlukan otentikasi sah untuk menghapus file.' });
+        }
         try {
             let body = req.body;
             if (typeof body === 'string') body = JSON.parse(body);

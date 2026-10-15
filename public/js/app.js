@@ -1442,7 +1442,10 @@ async function uploadPhotosAndSave(photosToUpload, targetObj, targetType) {
 
             const res = await fetch(UPLOAD_API, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-fo-app-key': (typeof FO_APP_KEY !== 'undefined' ? FO_APP_KEY : 'fo_sec_9x8k2m7q4p1w5v0z_2026')
+                },
                 body: JSON.stringify({
                     image: imageData,
                     filename: filename,

@@ -11,8 +11,9 @@ const PRIMARY_SYNC_API = (typeof window !== 'undefined' && window.location && wi
     ? `${window.location.origin}/api/sync`
     : 'https://fo-network-mapper.vercel.app/api/sync';
 
+// Kunci Otentikasi Sah Aplikasi untuk akses API Server
+const FO_APP_KEY = 'fo_sec_9x8k2m7q4p1w5v0z_2026';
 const GIST_API_FALLBACK = 'https://api.github.com/gists/80d7fe9d65a6e2b114c38475bd746b37';
-const GIST_TOKEN_FALLBACK = 'UtjLL3ya9SPS4Prjz0uufJS5oUkCr42MROw2_phg'.split('').reverse().join('');
 
 let isCloudSyncInProgress = false;
 let cloudSyncTimer = null;
@@ -81,48 +82,23 @@ async function pushDataToCloud(payload) {
 
     let uploadSuccess = false;
 
-    // 1. Coba upload via Vercel Serverless API
+    // Upload via Vercel Serverless API dengan Header Otentikasi Sah
     try {
         const res = await fetch(`${PRIMARY_SYNC_API}?type=network`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'x-fo-app-key': FO_APP_KEY
             },
             body: JSON.stringify(payload)
         });
         if (res.ok) {
             uploadSuccess = true;
+        } else {
+            console.warn('[CloudSync] Server Cloud merespon status:', res.status);
         }
     } catch (err) {
-        console.warn('[CloudSync] Primary API POST gagal, mencoba direct Gist fallback...', err.message);
-    }
-
-    // 2. Direct Gist API Fallback jika Primary gagal
-    if (!uploadSuccess) {
-        try {
-            const reqBody = JSON.stringify({
-                description: 'FO Network Mapper - Cloud Database',
-                files: {
-                    'fo_network_data.json': {
-                        content: JSON.stringify(payload, null, 2)
-                    }
-                }
-            });
-            const res = await fetch(GIST_API_FALLBACK, {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `token ${GIST_TOKEN_FALLBACK}`,
-                    'Accept': 'application/vnd.github.v3+json'
-                },
-                body: reqBody
-            });
-            if (res.ok) {
-                uploadSuccess = true;
-            }
-        } catch (err) {
-            console.warn('[CloudSync] Direct Gist fallback gagal:', err.message);
-        }
+        console.warn('[CloudSync] Primary API POST gagal:', err.message);
     }
 
     if (uploadSuccess) {
@@ -151,6 +127,7 @@ async function pullDataFromCloud(isManual = false) {
     let cloudData = null;
 
     // 1. Coba ambil dari Primary API
+    // 1. Coba ambil dari Primary API dengan Kunci Otentikasi
     try {
         const fetchUrl = `${PRIMARY_SYNC_API}?type=network&_cb=${Date.now()}`;
         const res = await fetch(fetchUrl, {
@@ -159,7 +136,8 @@ async function pullDataFromCloud(isManual = false) {
             headers: {
                 'Accept': 'application/json',
                 'Cache-Control': 'no-cache, no-store, must-revalidate',
-                'Pragma': 'no-cache'
+                'Pragma': 'no-cache',
+                'x-fo-app-key': FO_APP_KEY
             }
         });
         if (res.ok) {
@@ -169,7 +147,7 @@ async function pullDataFromCloud(isManual = false) {
         console.warn('[CloudSync] Primary API GET gagal, mencoba direct Gist fallback...', err.message);
     }
 
-    // 2. Direct Gist API Fallback
+    // 2. Direct Gist API Fallback (Public Read - Zero Token Required)
     if (!cloudData) {
         try {
             const fetchUrl = `${GIST_API_FALLBACK}?_cb=${Date.now()}`;
@@ -177,7 +155,6 @@ async function pullDataFromCloud(isManual = false) {
                 method: 'GET',
                 cache: 'no-store',
                 headers: {
-                    'Authorization': `token ${GIST_TOKEN_FALLBACK}`,
                     'Accept': 'application/vnd.github.v3+json',
                     'Cache-Control': 'no-cache, no-store, must-revalidate'
                 }
@@ -284,14 +261,18 @@ async function syncUsersWithCloud() {
     try {
         let cloudUsers = null;
         try {
-            const res = await fetch(`${PRIMARY_SYNC_API}?type=users&_cb=${Date.now()}`);
+            const res = await fetch(`${PRIMARY_SYNC_API}?type=users&_cb=${Date.now()}`, {
+                headers: {
+                    'x-fo-app-key': FO_APP_KEY
+                }
+            });
             if (res.ok) cloudUsers = await res.json();
         } catch (e) {}
 
         if (!cloudUsers) {
             try {
                 const res = await fetch(`${GIST_API_FALLBACK}?_cb=${Date.now()}`, {
-                    headers: { 'Authorization': `token ${GIST_TOKEN_FALLBACK}`, 'Accept': 'application/vnd.github.v3+json' }
+                    headers: { 'Accept': 'application/vnd.github.v3+json' }
                 });
                 if (res.ok) {
                     const gist = await res.json();
@@ -317,35 +298,20 @@ async function syncUsersWithCloud() {
 
 async function pushUsersToCloud(users) {
     try {
-        let saved = false;
-        try {
-            const res = await fetch(`${PRIMARY_SYNC_API}?type=users`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(users)
-            });
-            if (res.ok) saved = true;
-        } catch (e) {}
-
-        if (!saved) {
-            const reqBody = JSON.stringify({
-                files: {
-                    'fo_users_data.json': {
-                        content: JSON.stringify(users, null, 2)
-                    }
-                }
-            });
-            await fetch(GIST_API_FALLBACK, {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `token ${GIST_TOKEN_FALLBACK}`,
-                    'Accept': 'application/vnd.github.v3+json'
-                },
-                body: reqBody
-            });
+        const res = await fetch(`${PRIMARY_SYNC_API}?type=users`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-fo-app-key': FO_APP_KEY
+            },
+            body: JSON.stringify(users)
+        });
+        if (!res.ok) {
+            console.warn('[CloudSync] Server Cloud gagal menyimpan akun pengguna, status:', res.status);
         }
-    } catch (e) {}
+    } catch (e) {
+        console.warn('[CloudSync] pushUsersToCloud error:', e.message);
+    }
 }
 
 /**

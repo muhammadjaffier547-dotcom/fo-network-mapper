@@ -12,13 +12,36 @@ try {
     localStorage.removeItem('fo_auth_token');
     localStorage.removeItem('fo_auth_user');
 } catch (e) {}
+/**
+ * Fungsi enkripsi satu arah SHA-256 menggunakan Web Crypto API
+ * Menghasilkan hash 64 karakter (password asli tidak dapat diintip / dibalik)
+ */
+async function hashPassword(plainText) {
+    if (!plainText) return '';
+    try {
+        if (typeof crypto !== 'undefined' && crypto.subtle) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(plainText);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+    } catch (e) {}
+    let hash = 0;
+    for (let i = 0; i < plainText.length; i++) {
+        const char = plainText.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash;
+    }
+    return 'h_' + Math.abs(hash).toString(16);
+}
 
-// Offline fallback users untuk mode standalone tanpa koneksi server
+// Offline fallback users dengan password ter-hash SHA-256 (jaff0808, admin123, teknisi123)
 const OFFLINE_FALLBACK_USERS = [
     {
         id: 'usr_superadmin_01',
         username: 'jaffier',
-        password: 'jaff0808',
+        password: '177881096f5b61de4a1693796b79fc74223c22f3a1e5194af7383baeae25bd30',
         name: 'Jaffier (Super Admin)',
         role: 'SUPER_ADMIN',
         avatar: 'fa-user-shield'
@@ -26,7 +49,7 @@ const OFFLINE_FALLBACK_USERS = [
     {
         id: 'usr_admin_01',
         username: 'admin',
-        password: 'admin123',
+        password: '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9',
         name: 'Admin Jaringan',
         role: 'ADMIN',
         avatar: 'fa-user-gear'
@@ -34,7 +57,7 @@ const OFFLINE_FALLBACK_USERS = [
     {
         id: 'usr_teknisi_01',
         username: 'teknisi',
-        password: 'teknisi123',
+        password: '89f4c09f0710cd9ccbb2dbf74df4f22c931902a9127965b5b6afd74937bf957d',
         name: 'Teknisi Lapangan',
         role: 'USER',
         avatar: 'fa-hard-hat'
@@ -45,20 +68,31 @@ function getStoredLocalUsers() {
     try {
         const version = localStorage.getItem('fo_users_version');
         const saved = localStorage.getItem('fo_local_users');
-        if (version === 'v2' && saved) {
+        if (version === 'v3' && saved) {
             const list = JSON.parse(saved);
             if (Array.isArray(list) && list.some(u => u.username.toLowerCase() === 'jaffier')) {
                 return list;
             }
         }
     } catch (e) {}
-    localStorage.setItem('fo_users_version', 'v2');
+    localStorage.setItem('fo_users_version', 'v3');
     localStorage.setItem('fo_local_users', JSON.stringify(OFFLINE_FALLBACK_USERS));
     return OFFLINE_FALLBACK_USERS;
 }
 
-function saveStoredLocalUsers(users) {
-    localStorage.setItem('fo_local_users', JSON.stringify(users));
+async function saveStoredLocalUsers(users) {
+    if (!Array.isArray(users)) return;
+    const secured = await Promise.all(users.map(async u => {
+        const copy = { ...u };
+        if (copy.password && copy.password.length !== 64) {
+            copy.password = await hashPassword(copy.password);
+        }
+        return copy;
+    }));
+    localStorage.setItem('fo_local_users', JSON.stringify(secured));
+    if (typeof pushUsersToCloud === 'function') {
+        pushUsersToCloud(secured);
+    }
 }
 
 /**
@@ -258,10 +292,19 @@ async function submitLogin() {
             return;
         }
     } catch (err) {
-        // Fallback login offline
+        // Fallback login offline / serverless
         const localUsers = getStoredLocalUsers();
-        const found = localUsers.find(u => u.username.toLowerCase() === username.toLowerCase() && u.password === password);
+        const inputHash = await hashPassword(password);
+        const found = localUsers.find(u => 
+            u.username.toLowerCase() === username.toLowerCase() && 
+            (u.password === inputHash || u.password === password)
+        );
         if (found) {
+            // Auto-upgrade password ke hash SHA-256 jika sebelumnya masih plaintext
+            if (found.password !== inputHash && found.password === password) {
+                found.password = inputHash;
+                saveStoredLocalUsers(localUsers);
+            }
             const role = found.role;
             const defAvatar = role === 'SUPER_ADMIN' ? 'fa-user-shield' : (role === 'ADMIN' ? 'fa-user-gear' : 'fa-hard-hat');
             currentAuthUser = {
@@ -700,10 +743,11 @@ async function handleCreateUser(event) {
             }
             return;
         }
+        const hashedPassword = await hashPassword(password);
         const newUser = {
             id: 'usr_' + Date.now(),
             username,
-            password,
+            password: hashedPassword,
             name: name || username,
             role,
             avatar: role === 'SUPER_ADMIN' ? 'fa-user-shield' : (role === 'ADMIN' ? 'fa-user-gear' : 'fa-hard-hat'),

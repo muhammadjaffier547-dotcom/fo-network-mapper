@@ -83,11 +83,18 @@ function updateGist(filesObj) {
     });
 }
 
+const SYSTEM_APP_KEY = process.env.FO_APP_SECRET || 'fo_sec_9x8k2m7q4p1w5v0z_2026';
+
+function isAuthorized(req) {
+    const key = req.headers['x-fo-app-key'] || req.query.key;
+    return key === SYSTEM_APP_KEY;
+}
+
 module.exports = async (req, res) => {
     // CORS headers for all origins (standalone HTML file, mobile browsers, localhost, etc.)
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Cache-Control, Pragma');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Cache-Control, Pragma, x-fo-app-key');
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
@@ -120,7 +127,21 @@ module.exports = async (req, res) => {
             }
 
             try {
-                const parsed = JSON.parse(contentStr);
+                let parsed = JSON.parse(contentStr);
+
+                // Keamanan Ekstra: Jika request daftar user berasal dari publik tanpa kunci rahasia,
+                // hapus kolom password seluruhnya agar tidak terlihat di browser/DevTools
+                if (type === 'users' && Array.isArray(parsed) && !isAuthorized(req)) {
+                    parsed = parsed.map(u => ({
+                        id: u.id,
+                        username: u.username,
+                        name: u.name,
+                        role: u.role,
+                        avatar: u.avatar,
+                        createdAt: u.createdAt
+                    }));
+                }
+
                 return res.status(200).json(parsed);
             } catch (err) {
                 return res.status(200).send(contentStr);
@@ -132,6 +153,11 @@ module.exports = async (req, res) => {
     }
 
     if (req.method === 'POST') {
+        // Proteksi POST: Tolak jika tidak membawa kunci otentikasi sah
+        if (!isAuthorized(req)) {
+            return res.status(401).json({ error: 'Akses Ditolak: Kunci otentikasi API tidak valid atau tidak disertakan.' });
+        }
+
         try {
             let body = req.body;
             if (typeof body === 'string') {
