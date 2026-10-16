@@ -529,7 +529,10 @@
                 </div>
             </div>
             <div class="flex items-center gap-2 border-l border-slate-700 pl-4">
-                <button onclick="autoSnapCurrentEditingCable()" title="Otomatis sambungkan kedua ujung rute ke titik gedung terdekat" class="bg-indigo-600 hover:bg-indigo-500 text-white px-2.5 py-1.5 rounded-lg text-xs font-bold shadow flex items-center gap-1 transition">
+                <button onclick="optimizeCurrentCableRoute()" title="Optimalin titik rute: bersihkan duplikat dan nempelkan titik ke gedung" class="bg-amber-600 hover:bg-amber-500 text-white px-2.5 py-1.5 rounded-lg text-xs font-bold shadow flex items-center gap-1 transition">
+                    <i class="fa-solid fa-wand-magic-sparkles text-amber-200"></i> <span class="hidden sm:inline">Optimalin Titik</span>
+                </button>
+                <button onclick="autoSnapCurrentEditingCable()" title="Otomatis sambungkan rute ke titik gedung terdekat" class="bg-indigo-600 hover:bg-indigo-500 text-white px-2.5 py-1.5 rounded-lg text-xs font-bold shadow flex items-center gap-1 transition">
                     <i class="fa-solid fa-magnet text-emerald-300"></i> <span class="hidden sm:inline">Snap Gedung</span>
                 </button>
                 <button onclick="continueDrawingFromRouteEditor()" title="Sambung dan teruskan tarikan kabel dari ujung rute ini" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow flex items-center gap-1 transition">

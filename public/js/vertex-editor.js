@@ -75,13 +75,14 @@ function renderRouteHandles() {
             })
         }).addTo(map);
 
-        // Event Drag: Relokasi titik secara real-time
+        // Event Drag: Relokasi titik secara real-time dengan snap magnetik kuat
         handle.on('drag', function(e) {
             let newPos = [e.latlng.lat, e.latlng.lng];
             if (typeof isSnapToNode !== 'undefined' && isSnapToNode && typeof findNearestNode === 'function') {
-                const near = findNearestNode(e.latlng.lat, e.latlng.lng, 25);
+                const near = findNearestNode(e.latlng.lat, e.latlng.lng, 45);
                 if (near) {
                     newPos = [near.node.lat, near.node.lng];
+                    handle.setLatLng(newPos); // Visual snap: marker langsung lompat nempel ke node
                     if (typeof renderSnapIndicator === 'function') {
                         renderSnapIndicator(near.node, near.distance);
                     }
@@ -101,21 +102,23 @@ function renderRouteHandles() {
             document.getElementById('route-editor-dist').innerText = `${totalDist} m`;
         });
 
-        // Event Dragend: Perbarui titik tengah setelah digeser
+        // Event Dragend: Perbarui titik setelah digeser
         handle.on('dragend', function(e) {
             if (typeof clearSnapIndicator === 'function') clearSnapIndicator();
             if (typeof isSnapToNode !== 'undefined' && isSnapToNode && typeof findNearestNode === 'function') {
                 const pos = e.target.getLatLng();
-                const near = findNearestNode(pos.lat, pos.lng, 25);
+                const near = findNearestNode(pos.lat, pos.lng, 45);
                 if (near) {
-                    cable.points[idx] = [near.node.lat, near.node.lng];
+                    const exactPos = [near.node.lat, near.node.lng];
+                    cable.points[idx] = exactPos;
+                    handle.setLatLng(exactPos);
                     if (idx === 0) {
                         cable.fromBuilding = near.node.name;
                     } else if (idx === cable.points.length - 1) {
                         cable.toBuilding = near.node.name;
                     }
                     if (typeof showToast === 'function') {
-                        showToast(`🧲 Titik #${idx + 1} otomatis menempel ke "${near.node.name}"!`);
+                        showToast(`🧲 Titik #${idx + 1} otomatis nempel ke "${near.node.name}"!`);
                     }
                 }
             }
@@ -165,12 +168,36 @@ function renderRouteHandles() {
         });
 
         midHandle.on('drag', function(e) {
-            cable.points[insertIndex] = [e.latlng.lat, e.latlng.lng];
+            let newPos = [e.latlng.lat, e.latlng.lng];
+            if (typeof isSnapToNode !== 'undefined' && isSnapToNode && typeof findNearestNode === 'function') {
+                const near = findNearestNode(e.latlng.lat, e.latlng.lng, 45);
+                if (near) {
+                    newPos = [near.node.lat, near.node.lng];
+                    midHandle.setLatLng(newPos);
+                    if (typeof renderSnapIndicator === 'function') {
+                        renderSnapIndicator(near.node, near.distance);
+                    }
+                } else if (typeof clearSnapIndicator === 'function') {
+                    clearSnapIndicator();
+                }
+            }
+            cable.points[insertIndex] = newPos;
             if (poly) poly.setLatLngs(cable.points);
             updateCableDistance(cable);
         });
 
-        midHandle.on('dragend', function() {
+        midHandle.on('dragend', function(e) {
+            if (typeof clearSnapIndicator === 'function') clearSnapIndicator();
+            if (typeof isSnapToNode !== 'undefined' && isSnapToNode && typeof findNearestNode === 'function') {
+                const pos = e.target.getLatLng();
+                const near = findNearestNode(pos.lat, pos.lng, 45);
+                if (near) {
+                    cable.points[insertIndex] = [near.node.lat, near.node.lng];
+                    if (typeof showToast === 'function') {
+                        showToast(`🧲 Titik baru otomatis nempel ke "${near.node.name}"!`);
+                    }
+                }
+            }
             updateCableDistance(cable);
             renderRouteHandles();
         });
@@ -286,6 +313,123 @@ function continueDrawingFromRouteEditor() {
     if (typeof continueDrawingCable === 'function') {
         continueDrawingCable(cid);
     }
+}
+
+/**
+ * Mengoptimalkan rute kabel yang sedang diedit:
+ * 1. Menghapus titik duplikat / bertumpuk (< 0.5 meter)
+ * 2. Menempelkan otomatis ujung awal & akhir ke gedung terdekat (radius hingga 45m)
+ * 3. Menempelkan titik tengah yang dekat gedung/node (radius hingga 35m)
+ * 4. Memperbarui nama gedung asal / tujuan serta jarak kabel
+ */
+function optimizeCurrentCableRoute() {
+    if (!editingCableId) {
+        if (typeof showToast === 'function') showToast('ℹ️ Pilih jalur yang ingin diedit terlebih dahulu.');
+        return;
+    }
+    const cable = cables.find(c => c.id === editingCableId);
+    if (!cable || !cable.points || cable.points.length < 2) return;
+
+    let pts = cable.points;
+    const initialCount = pts.length;
+    let modified = false;
+    let snappedNodes = [];
+
+    // 1. Bersihkan duplikat berurutan
+    let cleanPts = [];
+    for (let i = 0; i < pts.length; i++) {
+        if (cleanPts.length === 0) {
+            cleanPts.push(pts[i]);
+            continue;
+        }
+        const last = cleanPts[cleanPts.length - 1];
+        const dist = (typeof map !== 'undefined' && map)
+            ? map.distance(L.latLng(last[0], last[1]), L.latLng(pts[i][0], pts[i][1]))
+            : 10;
+        if (dist > 0.4) {
+            cleanPts.push(pts[i]);
+        } else {
+            modified = true;
+        }
+    }
+
+    // 2. Snap Ujung Awal & Akhir ke Node Terdekat (radius 45m)
+    if (typeof findNearestNode === 'function') {
+        const startNear = findNearestNode(cleanPts[0][0], cleanPts[0][1], 45);
+        if (startNear) {
+            cleanPts[0] = [startNear.node.lat, startNear.node.lng];
+            cable.fromBuilding = startNear.node.name;
+            snappedNodes.push(startNear.node.name);
+            modified = true;
+        }
+
+        const endIdx = cleanPts.length - 1;
+        const endNear = findNearestNode(cleanPts[endIdx][0], cleanPts[endIdx][1], 45);
+        if (endNear) {
+            cleanPts[endIdx] = [endNear.node.lat, endNear.node.lng];
+            cable.toBuilding = endNear.node.name;
+            snappedNodes.push(endNear.node.name);
+            modified = true;
+        }
+
+        // 3. Snap titik tengah jika sangat dekat dengan node (< 35m)
+        for (let i = 1; i < cleanPts.length - 1; i++) {
+            const midNear = findNearestNode(cleanPts[i][0], cleanPts[i][1], 35);
+            if (midNear) {
+                cleanPts[i] = [midNear.node.lat, midNear.node.lng];
+                if (!snappedNodes.includes(midNear.node.name)) {
+                    snappedNodes.push(midNear.node.name);
+                }
+                modified = true;
+            }
+        }
+    }
+
+    // 4. Bersihkan duplikat lagi setelah snapping (jika ada titik yang nempel ke node sama)
+    let finalPts = [];
+    for (let i = 0; i < cleanPts.length; i++) {
+        if (finalPts.length === 0) {
+            finalPts.push(cleanPts[i]);
+            continue;
+        }
+        const last = finalPts[finalPts.length - 1];
+        const dist = (typeof map !== 'undefined' && map)
+            ? map.distance(L.latLng(last[0], last[1]), L.latLng(cleanPts[i][0], cleanPts[i][1]))
+            : 10;
+        if (dist > 0.4) {
+            finalPts.push(cleanPts[i]);
+        }
+    }
+
+    cable.points = finalPts;
+    updateCableDistance(cable);
+
+    const poly = cablePolylines[cable.id];
+    if (poly) poly.setLatLngs(cable.points);
+    if (typeof cableStreamPolylines !== 'undefined' && cableStreamPolylines[cable.id]) {
+        cableStreamPolylines[cable.id].setLatLngs(cable.points);
+    }
+
+    renderRouteHandles();
+
+    const targets = snappedNodes.length > 0 ? Array.from(new Set(snappedNodes)).join(' & ') : 'titik rute';
+    const dupCount = initialCount - finalPts.length;
+    if (typeof showToast === 'function') {
+        showToast(`✨ Jalur "${cable.name}" dioptimasi! Titik nempel ke ${targets}${dupCount > 0 ? ` (${dupCount} titik duplikat dibersihkan)` : ''}.`);
+    }
+
+    if (typeof logActivity === 'function') {
+        logActivity('cable_update', `Optimalin Rute: ${cable.name}`, `Menempelkan titik ke ${targets}${dupCount > 0 ? `, hapus ${dupCount} duplikat` : ''}`);
+    }
+}
+
+if (typeof window !== 'undefined') {
+    window.startEditingCableRoute = startEditingCableRoute;
+    window.finishEditingCableRoute = finishEditingCableRoute;
+    window.renderRouteHandles = renderRouteHandles;
+    window.deleteSpecificVertex = deleteSpecificVertex;
+    window.continueDrawingFromRouteEditor = continueDrawingFromRouteEditor;
+    window.optimizeCurrentCableRoute = optimizeCurrentCableRoute;
 }
 
 

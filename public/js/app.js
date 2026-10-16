@@ -75,6 +75,7 @@ let editingPhotos = [];
 let activeCablePoints = [];
 let tempPolyline = null;
 let tempVertices = [];
+let cableGuidePolyline = null;
 let extendingCableId = null;
 let extendingOriginalPoints = null;
 
@@ -414,19 +415,25 @@ function setMode(mode) {
         if (deleteBanner) deleteBanner.classList.add('hidden');
         map.getContainer().style.cursor = 'crosshair';
         updateDrawingBanner();
-    } else if (mode === 'delete') {
-        if (drawingBanner) drawingBanner.classList.add('hidden');
-        if (deleteBanner) deleteBanner.classList.remove('hidden');
-        map.getContainer().style.cursor = 'not-allowed';
-    } else if (mode === 'node') {
-        if (drawingBanner) drawingBanner.classList.add('hidden');
-        if (deleteBanner) deleteBanner.classList.add('hidden');
-        map.getContainer().style.cursor = 'pointer';
-        if (typeof updateQuickNodeTypeUI === 'function') updateQuickNodeTypeUI();
     } else {
-        if (drawingBanner) drawingBanner.classList.add('hidden');
-        if (deleteBanner) deleteBanner.classList.add('hidden');
-        map.getContainer().style.cursor = '';
+        if (cableGuidePolyline) {
+            map.removeLayer(cableGuidePolyline);
+            cableGuidePolyline = null;
+        }
+        if (mode === 'delete') {
+            if (drawingBanner) drawingBanner.classList.add('hidden');
+            if (deleteBanner) deleteBanner.classList.remove('hidden');
+            map.getContainer().style.cursor = 'not-allowed';
+        } else if (mode === 'node') {
+            if (drawingBanner) drawingBanner.classList.add('hidden');
+            if (deleteBanner) deleteBanner.classList.add('hidden');
+            map.getContainer().style.cursor = 'pointer';
+            if (typeof updateQuickNodeTypeUI === 'function') updateQuickNodeTypeUI();
+        } else {
+            if (drawingBanner) drawingBanner.classList.add('hidden');
+            if (deleteBanner) deleteBanner.classList.add('hidden');
+            map.getContainer().style.cursor = '';
+        }
     }
 }
 
@@ -621,11 +628,16 @@ function handleNodeClickInCableMode(node) {
             showToast(`🏢 Titik awal kabel: ${node.name}`);
         }
     } else {
+        const lastPt = activeCablePoints[activeCablePoints.length - 1];
+        if (typeof map !== 'undefined' && map && map.distance(L.latLng(lastPt[0], lastPt[1]), L.latLng(node.lat, node.lng)) < 0.3) {
+            return; // Cegah duplikat jika titik terakhir sudah di node ini
+        }
+
         const toEl = document.getElementById('cable-to-building');
         if (toEl) toEl.value = node.name;
 
         if (typeof handleCableMapClickWithSnap === 'function' && typeof isSnapToRoad !== 'undefined' && isSnapToRoad) {
-            handleCableMapClickWithSnap(node.lat, node.lng);
+            handleCableMapClickWithSnap(node.lat, node.lng, node);
         } else {
             addPointToActiveCable(node.lat, node.lng);
         }
@@ -653,11 +665,23 @@ map.on('click', function(e) {
 map.on('mousemove', function(e) {
     if (currentMode !== 'cable') {
         if (typeof clearSnapIndicator === 'function') clearSnapIndicator();
+        if (cableGuidePolyline) {
+            map.removeLayer(cableGuidePolyline);
+            cableGuidePolyline = null;
+        }
         return;
     }
+
+    let targetLat = e.latlng.lat;
+    let targetLng = e.latlng.lng;
+    let snappedNode = null;
+
     if (typeof isSnapToNode !== 'undefined' && isSnapToNode && typeof findNearestNode === 'function') {
-        const near = findNearestNode(e.latlng.lat, e.latlng.lng, 30);
+        const near = findNearestNode(e.latlng.lat, e.latlng.lng, 45);
         if (near) {
+            targetLat = near.node.lat;
+            targetLng = near.node.lng;
+            snappedNode = near.node;
             if (typeof renderSnapIndicator === 'function') {
                 renderSnapIndicator(near.node, near.distance);
             }
@@ -667,10 +691,40 @@ map.on('mousemove', function(e) {
             }
         }
     }
+
+    // Live magnetic rubber-band guide line dari titik terakhir aktif ke kursor/titik nempel
+    if (activeCablePoints.length > 0) {
+        const lastPt = activeCablePoints[activeCablePoints.length - 1];
+        const guidePts = [lastPt, [targetLat, targetLng]];
+
+        if (!cableGuidePolyline) {
+            cableGuidePolyline = L.polyline(guidePts, {
+                color: snappedNode ? '#10b981' : '#38bdf8',
+                weight: snappedNode ? 4 : 2.5,
+                dashArray: snappedNode ? '4, 4' : '6, 6',
+                opacity: 0.95,
+                interactive: false
+            }).addTo(map);
+        } else {
+            cableGuidePolyline.setLatLngs(guidePts);
+            cableGuidePolyline.setStyle({
+                color: snappedNode ? '#10b981' : '#38bdf8',
+                weight: snappedNode ? 4 : 2.5,
+                dashArray: snappedNode ? '4, 4' : '6, 6'
+            });
+        }
+    } else if (cableGuidePolyline) {
+        map.removeLayer(cableGuidePolyline);
+        cableGuidePolyline = null;
+    }
 });
 
 map.on('mouseout', function() {
     if (typeof clearSnapIndicator === 'function') clearSnapIndicator();
+    if (cableGuidePolyline) {
+        map.removeLayer(cableGuidePolyline);
+        cableGuidePolyline = null;
+    }
 });
 
 // --- 4. MANAJEMEN TITIK (CLOSURE / ODP / DLL) ---
@@ -927,6 +981,15 @@ function addPointToActiveCable(latOrPt, maybeLng) {
         lat = latOrPt;
         lng = maybeLng;
     }
+
+    // Cegah penambahan titik duplikat jika berjarak kurang dari 0.3 meter dari titik terakhir
+    if (activeCablePoints.length > 0 && typeof map !== 'undefined' && map) {
+        const last = activeCablePoints[activeCablePoints.length - 1];
+        if (map.distance(L.latLng(last[0], last[1]), L.latLng(lat, lng)) < 0.3) {
+            return;
+        }
+    }
+
     activeCablePoints.push([lat, lng]);
 
     const vertex = L.circleMarker([lat, lng], {
@@ -1100,6 +1163,10 @@ function resetTempCable() {
     if (tempPolyline) {
         map.removeLayer(tempPolyline);
         tempPolyline = null;
+    }
+    if (cableGuidePolyline) {
+        map.removeLayer(cableGuidePolyline);
+        cableGuidePolyline = null;
     }
     tempVertices.forEach(v => map.removeLayer(v));
     tempVertices = [];

@@ -9,7 +9,7 @@
 let isSnapToRoad = false;
 let isSnapToNode = true; // Default ON: kabel otomatis menempel jika dekat titik gedung
 let isFetchingRoute = false;
-const SNAP_NODE_THRESHOLD_METERS = 30; // Radius magnetik 30 meter
+const SNAP_NODE_THRESHOLD_METERS = 45; // Radius magnetik 45 meter (responsif & akurat)
 let snapIndicatorLayer = null;
 
 // --- 1. FITUR SNAP-TO-ROADS (OTOMATIS IKUTI JALAN RAYA) ---
@@ -39,7 +39,7 @@ function toggleSnapToNode() {
     updateSnapNodeButtonUI();
     if (isSnapToNode) {
         if (typeof showToast === 'function') {
-            showToast('🧲 Auto-Snap Gedung: ON. Titik kabel otomatis menempel ke gedung terdekat (radius 30m).');
+            showToast('🧲 Auto-Snap Gedung: ON. Titik kabel otomatis nempel ke gedung terdekat (radius 45m).');
         }
     } else {
         clearSnapIndicator();
@@ -94,13 +94,14 @@ function renderSnapIndicator(node, distance) {
     clearSnapIndicator();
 
     const safeName = (typeof escapeHtml === 'function') ? escapeHtml(node.name) : node.name;
+    const typeLabel = node.type ? `[${node.type}] ` : '';
     const icon = L.divIcon({
         className: 'snap-indicator-wrapper',
         html: `
             <div class="snap-target-ring"></div>
             <div class="snap-target-pill">
                 <i class="fa-solid fa-magnet text-emerald-300"></i>
-                <span>${safeName} (${Math.round(distance)}m)</span>
+                <span>Nempel: <b>${typeLabel}${safeName}</b> (${Math.round(distance)}m)</span>
             </div>
         `,
         iconSize: [44, 44],
@@ -110,7 +111,7 @@ function renderSnapIndicator(node, distance) {
     snapIndicatorLayer = L.marker([node.lat, node.lng], {
         icon,
         interactive: false,
-        zIndexOffset: 1200
+        zIndexOffset: 1500
     }).addTo(map);
 }
 
@@ -297,8 +298,10 @@ function autoSnapCableEndpoints(cableId, maxDistance = 35) {
  * Shortcut untuk tombol "Auto-Snap Gedung" di Route Editor Banner
  */
 function autoSnapCurrentEditingCable() {
-    if (typeof editingCableId !== 'undefined' && editingCableId) {
-        const ok = autoSnapCableEndpoints(editingCableId, 40);
+    if (typeof optimizeCurrentCableRoute === 'function') {
+        optimizeCurrentCableRoute();
+    } else if (typeof editingCableId !== 'undefined' && editingCableId) {
+        const ok = autoSnapCableEndpoints(editingCableId, 45);
         if (ok && typeof renderRouteHandles === 'function') {
             renderRouteHandles();
         }
