@@ -77,7 +77,18 @@ function renderRouteHandles() {
 
         // Event Drag: Relokasi titik secara real-time
         handle.on('drag', function(e) {
-            const newPos = [e.latlng.lat, e.latlng.lng];
+            let newPos = [e.latlng.lat, e.latlng.lng];
+            if (typeof isSnapToNode !== 'undefined' && isSnapToNode && typeof findNearestNode === 'function') {
+                const near = findNearestNode(e.latlng.lat, e.latlng.lng, 25);
+                if (near) {
+                    newPos = [near.node.lat, near.node.lng];
+                    if (typeof renderSnapIndicator === 'function') {
+                        renderSnapIndicator(near.node, near.distance);
+                    }
+                } else if (typeof clearSnapIndicator === 'function') {
+                    clearSnapIndicator();
+                }
+            }
             cable.points[idx] = newPos;
             if (poly) poly.setLatLngs(cable.points);
 
@@ -88,7 +99,23 @@ function renderRouteHandles() {
         });
 
         // Event Dragend: Perbarui titik tengah setelah digeser
-        handle.on('dragend', function() {
+        handle.on('dragend', function(e) {
+            if (typeof clearSnapIndicator === 'function') clearSnapIndicator();
+            if (typeof isSnapToNode !== 'undefined' && isSnapToNode && typeof findNearestNode === 'function') {
+                const pos = e.target.getLatLng();
+                const near = findNearestNode(pos.lat, pos.lng, 25);
+                if (near) {
+                    cable.points[idx] = [near.node.lat, near.node.lng];
+                    if (idx === 0) {
+                        cable.fromBuilding = near.node.name;
+                    } else if (idx === cable.points.length - 1) {
+                        cable.toBuilding = near.node.name;
+                    }
+                    if (typeof showToast === 'function') {
+                        showToast(`🧲 Titik #${idx + 1} otomatis menempel ke "${near.node.name}"!`);
+                    }
+                }
+            }
             updateCableDistance(cable);
             renderRouteHandles();
         });
@@ -202,6 +229,7 @@ function clearRouteHandles() {
     cableEditHandles = [];
     cableMidpointHandles.forEach(h => map.removeLayer(h));
     cableMidpointHandles = [];
+    if (typeof clearSnapIndicator === 'function') clearSnapIndicator();
 }
 
 /**

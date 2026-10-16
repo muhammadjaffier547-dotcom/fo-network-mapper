@@ -586,12 +586,35 @@ map.on('click', function(e) {
     if (currentMode === 'node') {
         createNode(lat, lng);
     } else if (currentMode === 'cable') {
-        if (typeof handleCableMapClickWithSnap === 'function' && typeof isSnapToRoad !== 'undefined' && isSnapToRoad) {
+        if (typeof handleCableMapClickWithSnap === 'function') {
             handleCableMapClickWithSnap(lat, lng);
         } else {
             addPointToActiveCable(lat, lng);
         }
     }
+});
+
+map.on('mousemove', function(e) {
+    if (currentMode !== 'cable') {
+        if (typeof clearSnapIndicator === 'function') clearSnapIndicator();
+        return;
+    }
+    if (typeof isSnapToNode !== 'undefined' && isSnapToNode && typeof findNearestNode === 'function') {
+        const near = findNearestNode(e.latlng.lat, e.latlng.lng, 30);
+        if (near) {
+            if (typeof renderSnapIndicator === 'function') {
+                renderSnapIndicator(near.node, near.distance);
+            }
+        } else {
+            if (typeof clearSnapIndicator === 'function') {
+                clearSnapIndicator();
+            }
+        }
+    }
+});
+
+map.on('mouseout', function() {
+    if (typeof clearSnapIndicator === 'function') clearSnapIndicator();
 });
 
 // --- 4. MANAJEMEN TITIK (CLOSURE / ODP / DLL) ---
@@ -764,9 +787,47 @@ function renderNodeMarker(node) {
 
     marker.on('dragend', function(e) {
         if (typeof hasWritePermission === 'function' && !hasWritePermission()) return;
+        const oldLat = node.lat;
+        const oldLng = node.lng;
         const pos = e.target.getLatLng();
         node.lat = pos.lat;
         node.lng = pos.lng;
+
+        // Auto-update rute kabel yang tersambung ke titik ini agar tetap menempel
+        let updatedCablesCount = 0;
+        if (Array.isArray(cables)) {
+            cables.forEach(c => {
+                if (!c.points || c.points.length < 2) return;
+                let cModified = false;
+                const pFirst = c.points[0];
+                const pLast = c.points[c.points.length - 1];
+
+                if (c.fromBuilding === node.name || (Math.abs(pFirst[0] - oldLat) < 0.00015 && Math.abs(pFirst[1] - oldLng) < 0.00015)) {
+                    c.points[0] = [node.lat, node.lng];
+                    c.fromBuilding = node.name;
+                    cModified = true;
+                }
+                if (c.toBuilding === node.name || (Math.abs(pLast[0] - oldLat) < 0.00015 && Math.abs(pLast[1] - oldLng) < 0.00015)) {
+                    c.points[c.points.length - 1] = [node.lat, node.lng];
+                    c.toBuilding = node.name;
+                    cModified = true;
+                }
+                if (cModified) {
+                    const rawDist = calculatePolylineDistance(c.points);
+                    c.rawDistance = Math.round(rawDist);
+                    c.totalDistance = Math.round(rawDist * (1 + (c.slackPercent || 0) / 100));
+                    if (cablePolylines && cablePolylines[c.id]) {
+                        cablePolylines[c.id].setLatLngs(c.points);
+                    }
+                    updatedCablesCount++;
+                }
+            });
+        }
+
+        if (updatedCablesCount > 0 && typeof showToast === 'function') {
+            showToast(`🧲 ${updatedCablesCount} rute kabel otomatis ikut menempel ke posisi baru "${node.name}".`);
+        }
+
         saveAndRefresh();
     });
 
@@ -837,6 +898,30 @@ function finishDrawingCable() {
         resetTempCable();
         return;
     }
+
+    // Auto-Snap kedua ujung kabel jika berada dekat titik gedung (<= 35m)
+    if (typeof isSnapToNode !== 'undefined' && isSnapToNode && typeof findNearestNode === 'function') {
+        const pStart = activeCablePoints[0];
+        const nearStart = findNearestNode(pStart[0], pStart[1], 35);
+        if (nearStart) {
+            activeCablePoints[0] = [nearStart.node.lat, nearStart.node.lng];
+            const fromEl = document.getElementById('cable-from-building');
+            if (fromEl && (!fromEl.value || !fromEl.value.trim())) {
+                fromEl.value = nearStart.node.name;
+            }
+        }
+
+        const pEnd = activeCablePoints[activeCablePoints.length - 1];
+        const nearEnd = findNearestNode(pEnd[0], pEnd[1], 35);
+        if (nearEnd) {
+            activeCablePoints[activeCablePoints.length - 1] = [nearEnd.node.lat, nearEnd.node.lng];
+            const toEl = document.getElementById('cable-to-building');
+            if (toEl && (!toEl.value || !toEl.value.trim())) {
+                toEl.value = nearEnd.node.name;
+            }
+        }
+    }
+    if (typeof clearSnapIndicator === 'function') clearSnapIndicator();
 
     if (extendingCableId) {
         const cable = cables.find(c => c.id === extendingCableId);
@@ -1028,6 +1113,9 @@ function getCablePopupHtml(cable) {
             </button>
             <button onclick="startEditingCableRoute('${cable.id}')" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-center gap-1.5 shadow transition">
                 <i class="fa-solid fa-bezier-curve"></i> Edit Titik & Relokasi Rute
+            </button>
+            <button onclick="autoSnapCableEndpoints('${cable.id}')" title="Tempelkan kedua ujung kabel ke titik gedung terdekat (Auto-Connect)" class="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-center gap-1.5 shadow-sm transition">
+                <i class="fa-solid fa-magnet text-indigo-600"></i> Sambungkan ke Gedung Terdekat
             </button>
             <div class="grid grid-cols-2 gap-1.5">
                 <button onclick="openOtdrModal('${cable.id}')" title="Pencari titik kabel putus (OTDR)" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 py-1.5 px-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1 shadow-sm">

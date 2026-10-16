@@ -178,4 +178,62 @@ html, body {
     50% { transform: scale(1.22); box-shadow: 0 0 26px rgba(239, 68, 68, 1); }
 }
 
+/* Magnetic Snap Indicator Styling */
+.snap-indicator-wrapper {
+    background: transparent;
+    border: none;
+    pointer-events: none;
+}
+
+.snap-target-ring {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    margin-top: -22px;
+    margin-left: -22px;
+    border-radius: 50%;
+    border: 3px dashed #10b981;
+    background: rgba(16, 185, 129, 0.25);
+    animation: snapRingPulse 1.2s infinite ease-in-out;
+    pointer-events: none;
+}
+
+@keyframes snapRingPulse {
+    0% {
+        transform: scale(0.85);
+        opacity: 0.95;
+    }
+    50% {
+        transform: scale(1.35);
+        opacity: 0.45;
+    }
+    100% {
+        transform: scale(0.85);
+        opacity: 0.95;
+    }
+}
+
+.snap-target-pill {
+    position: absolute;
+    bottom: -28px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #0f172a;
+    color: #10b981;
+    border: 1px solid #10b981;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    white-space: nowrap;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    pointer-events: none;
+    z-index: 1200;
+}
+
 
