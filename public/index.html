@@ -231,11 +231,11 @@
                         <div>
                             <label class="text-xs text-slate-300 block mb-1">Kapasitas Kabel</label>
                             <select id="cable-type" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500">
-                                <option value="12 Core|#3b82f6">12 Core (Biru)</option>
-                                <option value="24 Core|#f97316" selected>24 Core (Oranye)</option>
+                                <option value="24 Core|#2563eb" selected>24 Core (Biru Elektrik)</option>
+                                <option value="12 Core|#0284c7">12 Core (Cyan)</option>
                                 <option value="48 Core|#10b981">48 Core (Hijau)</option>
                                 <option value="96 Core|#a855f7">96 Core (Ungu)</option>
-                                <option value="Dropcore|#eab308">Dropcore (Kuning)</option>
+                                <option value="Dropcore|#f97316">Dropcore (Oranye)</option>
                             </select>
                         </div>
                         <div>
@@ -461,11 +461,14 @@
             </button>
             <div id="map-auth-pill"></div>
             <div id="cloud-sync-pill-container"></div>
-            <button id="btn-toggle-snap-node" onclick="toggleSnapToNode()" title="Auto-Snap: Otomatis sambungkan kabel jika dekat titik gedung (radius 30m)" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 text-white border border-emerald-500 shadow-lg flex items-center gap-1.5 transition">
-                <i class="fa-solid fa-magnet text-emerald-200"></i> <span class="hidden sm:inline">Snap Gedung: <b>ON</b></span><span class="sm:hidden font-bold">Snap</span>
+            <button id="btn-toggle-snap-node" onclick="toggleSnapToNode()" title="Auto-Snap: Otomatis sambungkan kabel jika dekat titik gedung (radius 30m)" class="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 text-white border border-emerald-500 shadow-lg flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-magnet text-emerald-200"></i> <span class="hidden sm:inline">Snap: <b>ON</b></span><span class="sm:hidden font-bold">Snap</span>
             </button>
-            <button id="btn-toggle-snap-road" onclick="toggleSnapToRoad()" title="Otomatis tarik garis kabel mengikuti jalan raya (OSRM)" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700/80 shadow-lg backdrop-blur flex items-center gap-1.5 transition">
-                <i class="fa-solid fa-road text-amber-400"></i> <span class="hidden sm:inline">Snap Jalan: <b>OFF</b></span><span class="sm:hidden font-bold">Jalan</span>
+            <button id="btn-toggle-cable-flow" onclick="toggleCableFlowEffect()" title="Aktifkan / nonaktifkan efek animasi aliran cahaya kabel FO" class="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-cyan-600 text-white border border-cyan-400 shadow-lg flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-bolt text-yellow-300"></i> <span class="hidden sm:inline">Aliran: <b>ON</b></span><span class="sm:hidden font-bold">Aliran</span>
+            </button>
+            <button id="btn-toggle-snap-road" onclick="toggleSnapToRoad()" title="Otomatis tarik garis kabel mengikuti jalan raya (OSRM)" class="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700/80 shadow-lg backdrop-blur flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-road text-amber-400"></i> <span class="hidden sm:inline">Jalan: <b>OFF</b></span><span class="sm:hidden font-bold">Jalan</span>
             </button>
             <button id="btn-gps-my-location" onclick="getUserLocation(true)" title="Deteksi posisi GPS saya saat ini" class="w-9 h-9 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700/80 shadow-lg backdrop-blur flex items-center justify-center text-sm transition">
                 <i class="fa-solid fa-location-crosshairs text-blue-400"></i>

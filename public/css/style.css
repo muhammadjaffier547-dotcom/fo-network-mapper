@@ -236,4 +236,27 @@ html, body {
     z-index: 1200;
 }
 
+/* Animasi Aliran Cahaya Kabel Fiber Optik (Laser Stream Effect) */
+.cable-flow-stream {
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    pointer-events: none !important;
+    animation: foLaserFlow 1.4s linear infinite;
+    filter: drop-shadow(0 0 3px rgba(103, 232, 249, 0.9));
+}
+
+@keyframes foLaserFlow {
+    from {
+        stroke-dashoffset: 40;
+    }
+    to {
+        stroke-dashoffset: 0;
+    }
+}
+
+/* Ketika aliran cahaya dimatikan via toggle */
+body.cable-flow-disabled .cable-flow-stream {
+    display: none !important;
+}
+
 

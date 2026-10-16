@@ -91,6 +91,9 @@ function renderRouteHandles() {
             }
             cable.points[idx] = newPos;
             if (poly) poly.setLatLngs(cable.points);
+            if (typeof cableStreamPolylines !== 'undefined' && cableStreamPolylines[cable.id]) {
+                cableStreamPolylines[cable.id].setLatLngs(cable.points);
+            }
 
             // Update kalkulasi jarak real-time
             const rawDist = calculatePolylineDistance(cable.points);
@@ -219,6 +222,10 @@ function updateCableDistance(cable) {
 
     const distEl = document.getElementById('route-editor-dist');
     if (distEl) distEl.innerText = `${cable.totalDistance} m`;
+
+    if (typeof cableStreamPolylines !== 'undefined' && cableStreamPolylines[cable.id]) {
+        cableStreamPolylines[cable.id].setLatLngs(cable.points);
+    }
 }
 
 /**

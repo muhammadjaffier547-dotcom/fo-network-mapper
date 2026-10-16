@@ -267,6 +267,9 @@ function autoSnapCableEndpoints(cableId, maxDistance = 35) {
         if (typeof cablePolylines !== 'undefined' && cablePolylines[cable.id]) {
             cablePolylines[cable.id].setLatLngs(cable.points);
         }
+        if (typeof cableStreamPolylines !== 'undefined' && cableStreamPolylines[cable.id]) {
+            cableStreamPolylines[cable.id].setLatLngs(cable.points);
+        }
 
         if (typeof saveAndRefresh === 'function') {
             saveAndRefresh();
@@ -344,6 +347,9 @@ function autoSnapAllCables(maxDistance = 35) {
             c.totalDistance = Math.round(rawDist * (1 + (c.slackPercent || 0) / 100));
             if (typeof cablePolylines !== 'undefined' && cablePolylines[c.id]) {
                 cablePolylines[c.id].setLatLngs(c.points);
+            }
+            if (typeof cableStreamPolylines !== 'undefined' && cableStreamPolylines[c.id]) {
+                cableStreamPolylines[c.id].setLatLngs(c.points);
             }
             count++;
         }

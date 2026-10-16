@@ -59,6 +59,8 @@ let nodes = [];
 let cables = [];
 let nodeMarkers = {};
 let cablePolylines = {};
+let cableStreamPolylines = {};
+let isCableFlowActive = (typeof localStorage !== 'undefined') ? (localStorage.getItem('fo_cable_flow_active') !== 'false') : true;
 
 // State untuk foto form input sidebar
 let pendingNodePhotos = [];
@@ -819,6 +821,9 @@ function renderNodeMarker(node) {
                     if (cablePolylines && cablePolylines[c.id]) {
                         cablePolylines[c.id].setLatLngs(c.points);
                     }
+                    if (cableStreamPolylines && cableStreamPolylines[c.id]) {
+                        cableStreamPolylines[c.id].setLatLngs(c.points);
+                    }
                     updatedCablesCount++;
                 }
             });
@@ -1057,19 +1062,47 @@ function renderCablePolyline(cable) {
         map.removeLayer(cablePolylines[cable.id]);
         delete cablePolylines[cable.id];
     }
+    if (cableStreamPolylines[cable.id]) {
+        map.removeLayer(cableStreamPolylines[cable.id]);
+        delete cableStreamPolylines[cable.id];
+    }
+
+    // Default warna kabel: jika kabel berwarna oranye default lama (#f97316), ubah otomatis ke biru elektrik (#2563eb)
+    let cableColor = cable.color || '#2563eb';
+    if (cableColor === '#f97316' || !cableColor) {
+        cableColor = '#2563eb';
+        cable.color = '#2563eb';
+    }
 
     const poly = L.polyline(cable.points, {
-        color: cable.color,
+        color: cableColor,
         weight: 6,
         opacity: 0.95
     }).addTo(map);
 
+    // Animasi Aliran Cahaya (Laser Stream Overlay)
+    const streamPoly = L.polyline(cable.points, {
+        color: '#67e8f9',
+        weight: 3.5,
+        opacity: 0.95,
+        dashArray: '14, 26',
+        className: 'cable-flow-stream',
+        interactive: false
+    }).addTo(map);
+    cableStreamPolylines[cable.id] = streamPoly;
+
     // Efek hover agar interaksi jelas
     poly.on('mouseover', function() {
-        if (!editingCableId) this.setStyle({ weight: 9, opacity: 1 });
+        if (!editingCableId) {
+            this.setStyle({ weight: 9, opacity: 1 });
+            if (streamPoly) streamPoly.setStyle({ weight: 4.5 });
+        }
     });
     poly.on('mouseout', function() {
-        if (!editingCableId) this.setStyle({ weight: 6, opacity: 0.95 });
+        if (!editingCableId) {
+            this.setStyle({ weight: 6, opacity: 0.95 });
+            if (streamPoly) streamPoly.setStyle({ weight: 3.5 });
+        }
     });
 
     // Klik jalur untuk hapus jika dalam mode delete (hanya Super Admin)
@@ -1093,6 +1126,32 @@ function renderCablePolyline(cable) {
     });
 
     cablePolylines[cable.id] = poly;
+}
+
+function toggleCableFlowEffect() {
+    isCableFlowActive = !isCableFlowActive;
+    if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('fo_cable_flow_active', isCableFlowActive ? 'true' : 'false');
+    }
+    applyCableFlowState();
+    if (typeof showToast === 'function') {
+        showToast(isCableFlowActive ? '⚡ Animasi Aliran Cahaya Kabel: ON' : '⚡ Animasi Aliran Cahaya Kabel: OFF');
+    }
+}
+
+function applyCableFlowState() {
+    const btn = document.getElementById('btn-toggle-cable-flow');
+    if (btn) {
+        if (isCableFlowActive) {
+            btn.className = "px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-cyan-600 text-white border border-cyan-400 shadow-lg flex items-center gap-1.5 transition";
+            btn.innerHTML = '<i class="fa-solid fa-bolt text-yellow-300"></i> <span class="hidden sm:inline">Aliran: <b>ON</b></span><span class="sm:hidden font-bold">Aliran</span>';
+            document.body.classList.remove('cable-flow-disabled');
+        } else {
+            btn.className = "px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-800/90 hover:bg-slate-700 text-slate-300 border border-slate-700/80 shadow-lg backdrop-blur flex items-center gap-1.5 transition";
+            btn.innerHTML = '<i class="fa-solid fa-bolt text-slate-400"></i> <span class="hidden sm:inline">Aliran: <b>OFF</b></span><span class="sm:hidden font-bold">Aliran</span>';
+            document.body.classList.add('cable-flow-disabled');
+        }
+    }
 }
 
 function getCablePopupHtml(cable) {
@@ -1198,6 +1257,10 @@ function deleteCable(id, confirmAsk = true) {
     if (cablePolylines[id]) {
         map.removeLayer(cablePolylines[id]);
         delete cablePolylines[id];
+    }
+    if (cableStreamPolylines[id]) {
+        map.removeLayer(cableStreamPolylines[id]);
+        delete cableStreamPolylines[id];
     }
     if (typeof logActivity === 'function') {
         logActivity('cable_delete', `Hapus Jalur Kabel: ${cable.name}`, `Panjang: ${cable.totalDistance}m • Kapasitas: ${cable.coreSpec || '24C'}`);
@@ -2233,8 +2296,14 @@ function setNetworkData(newNodes, newCables, newLogs = null, shouldFitBounds = t
             try { if (map && map.hasLayer(p)) map.removeLayer(p); } catch (e) {}
         });
     }
+    if (typeof cableStreamPolylines !== 'undefined' && cableStreamPolylines) {
+        Object.values(cableStreamPolylines).forEach(p => {
+            try { if (map && map.hasLayer(p)) map.removeLayer(p); } catch (e) {}
+        });
+    }
     nodeMarkers = {};
     cablePolylines = {};
+    cableStreamPolylines = {};
 
     // 2. Pasang data baru
     nodes = Array.isArray(newNodes) ? newNodes : [];
@@ -2296,6 +2365,9 @@ window.setNetworkData = setNetworkData;
     window.cables = cables;
     window.nodeMarkers = nodeMarkers;
     window.cablePolylines = cablePolylines;
+    window.cableStreamPolylines = cableStreamPolylines;
+    window.toggleCableFlowEffect = toggleCableFlowEffect;
+    window.applyCableFlowState = applyCableFlowState;
     window.renderNodeMarker = renderNodeMarker;
     window.renderCablePolyline = renderCablePolyline;
     window.getNodePopupHtml = getNodePopupHtml;
@@ -2306,6 +2378,10 @@ window.setNetworkData = setNetworkData;
     window.openTutorialModal = openTutorialModal;
     window.closeTutorialModal = closeTutorialModal;
     window.switchTutorialTab = switchTutorialTab;
+
+    if (typeof applyCableFlowState === 'function') {
+        applyCableFlowState();
+    }
 
     // Inisialisasi Auth & terapkan hak akses UI sebelum render data awal
     if (typeof initAuth === 'function') {
