@@ -78,15 +78,68 @@ let tempVertices = [];
 let extendingCableId = null;
 let extendingOriginalPoints = null;
 
+let selectedQuickNodeType = 'Gedung';
+
 const nodeStyleMap = {
-    'Gedung':   { bg: '#d97706', icon: 'fa-building-circle-bolt', label: 'Gedung / Titik Power' },
-    'Closure':  { bg: '#ef4444', icon: 'fa-box-archive', label: 'Joint Closure (JB)' },
-    'Handhole': { bg: '#8b5cf6', icon: 'fa-cube', label: 'Handhole (HH) / Manhole' },
-    'ODP':      { bg: '#3b82f6', icon: 'fa-network-wired', label: 'ODP' },
-    'ODC':      { bg: '#f97316', icon: 'fa-server', label: 'ODC' },
-    'POP':      { bg: '#10b981', icon: 'fa-building-shield', label: 'POP / Server' },
-    'Tiang':    { bg: '#64748b', icon: 'fa-up-long', label: 'Tiang Tumpu' }
+    'Gedung':   { bg: '#0284c7', icon: 'fa-building', shapeClass: 'marker-gedung', label: 'Gedung / Pelanggan', prefix: 'GDG' },
+    'OLT':      { bg: '#ec4899', icon: 'fa-server', shapeClass: 'marker-olt', label: 'OLT / Sentral', prefix: 'OLT' },
+    'Closure':  { bg: '#ef4444', icon: 'fa-box-archive', shapeClass: 'marker-closure', label: 'Joint Closure (JB)', prefix: 'JC' },
+    'Handhole': { bg: '#8b5cf6', icon: 'fa-cube', shapeClass: 'marker-handhole', label: 'Handhole (HH) / Manhole', prefix: 'HH' },
+    'ODC':      { bg: '#f97316', icon: 'fa-warehouse', shapeClass: 'marker-odc', label: 'ODC (Cabinet)', prefix: 'ODC' },
+    'ODP':      { bg: '#06b6d4', icon: 'fa-network-wired', shapeClass: 'marker-odp', label: 'ODP (Distribusi)', prefix: 'ODP' },
+    'Tiang':    { bg: '#64748b', icon: 'fa-up-long', shapeClass: 'marker-tiang', label: 'Tiang Tumpu', prefix: 'TNG' },
+    'POP':      { bg: '#10b981', icon: 'fa-building-shield', shapeClass: 'marker-pop', label: 'POP / Server', prefix: 'POP' }
 };
+
+function updateQuickNodeTypeUI() {
+    const badge = document.getElementById('active-selected-type-badge');
+    const style = nodeStyleMap[selectedQuickNodeType] || nodeStyleMap['Gedung'];
+    if (badge) {
+        badge.textContent = selectedQuickNodeType;
+        badge.style.background = style.bg;
+    }
+
+    const typeSelect = document.getElementById('node-type');
+    if (typeSelect && typeSelect.value !== selectedQuickNodeType) {
+        typeSelect.value = selectedQuickNodeType;
+    }
+
+    const nodeNameInput = document.getElementById('node-name');
+    if (nodeNameInput) {
+        const exampleMap = {
+            'Gedung': 'Contoh: GDG-01 / Gedung Kantor',
+            'OLT': 'Contoh: OLT-01 / Sentral Core',
+            'Closure': 'Contoh: JC-01 Simpang / JB-12',
+            'Handhole': 'Contoh: HH-01 / Manhole 04',
+            'ODC': 'Contoh: ODC-01 / Cabinet 48C',
+            'ODP': 'Contoh: ODP-01 / Distribusi 1:8',
+            'Tiang': 'Contoh: TNG-01 / Tiang Tumpu',
+            'POP': 'Contoh: POP-01 / Node Hub'
+        };
+        nodeNameInput.placeholder = exampleMap[selectedQuickNodeType] || 'Nama Titik / ID Perangkat';
+    }
+
+    document.querySelectorAll('.quick-node-btn').forEach(btn => {
+        const type = btn.getAttribute('data-type');
+        const btnStyle = nodeStyleMap[type] || {};
+        if (type === selectedQuickNodeType) {
+            btn.className = "quick-node-btn py-1.5 px-1 rounded-lg text-[10px] font-bold text-white shadow flex flex-col items-center justify-center gap-0.5 border border-white/40 transition scale-[1.03]";
+            btn.style.background = btnStyle.bg || '#0284c7';
+        } else {
+            btn.className = "quick-node-btn py-1.5 px-1 rounded-lg text-[10px] font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 flex flex-col items-center justify-center gap-0.5 transition";
+            btn.style.background = '';
+        }
+    });
+}
+
+function selectNodeType(type) {
+    if (!nodeStyleMap[type]) return;
+    selectedQuickNodeType = type;
+    if (currentMode !== 'node') {
+        setMode('node');
+    }
+    updateQuickNodeTypeUI();
+}
 
 // State pengelompokan & filter Tab 2
 let nodeGroupFilter = 'ALL';
@@ -369,6 +422,7 @@ function setMode(mode) {
         if (drawingBanner) drawingBanner.classList.add('hidden');
         if (deleteBanner) deleteBanner.classList.add('hidden');
         map.getContainer().style.cursor = 'pointer';
+        if (typeof updateQuickNodeTypeUI === 'function') updateQuickNodeTypeUI();
     } else {
         if (drawingBanner) drawingBanner.classList.add('hidden');
         if (deleteBanner) deleteBanner.classList.add('hidden');
@@ -625,12 +679,14 @@ function createNode(lat, lng, customName = null, customType = null, customNote =
         alert('Akses Ditolak: Diperlukan hak akses Admin atau Super Admin untuk dapat menambah titik.');
         return;
     }
-    const type = customType || document.getElementById('node-type').value;
+    const type = customType || selectedQuickNodeType || (document.getElementById('node-type') ? document.getElementById('node-type').value : 'Gedung');
     const autoNumber = nodes.filter(n => n.type === type).length + 1;
-    const nameInput = document.getElementById('node-name').value.trim();
-    const name = customName || nameInput || `${type}-${String(autoNumber).padStart(2, '0')}`;
-    const note = customNote !== null ? customNote : (document.getElementById('node-note').value.trim() || '-');
-    const description = customDesc !== null ? customDesc : (document.getElementById('node-desc').value.trim() || '');
+    const nameInput = document.getElementById('node-name') ? document.getElementById('node-name').value.trim() : '';
+    const styleInfo = nodeStyleMap[type] || {};
+    const prefix = styleInfo.prefix || type.substring(0, 3).toUpperCase();
+    const name = customName || nameInput || `${prefix}-${String(autoNumber).padStart(2, '0')}`;
+    const note = customNote !== null ? customNote : ((document.getElementById('node-note') && document.getElementById('node-note').value.trim()) || '-');
+    const description = customDesc !== null ? customDesc : ((document.getElementById('node-desc') && document.getElementById('node-desc').value.trim()) || '');
     const rawPhotos = customPhotos !== null ? customPhotos : [...pendingNodePhotos];
 
     const newNode = {
@@ -749,10 +805,11 @@ function renderNodeMarker(node) {
         delete nodeMarkers[node.id];
     }
 
-    const style = nodeStyleMap[node.type] || nodeStyleMap['Closure'];
+    const style = nodeStyleMap[node.type] || nodeStyleMap['Closure'] || { bg: '#ef4444', icon: 'fa-box-archive', shapeClass: 'marker-closure' };
+    const shapeClass = style.shapeClass || '';
     const icon = L.divIcon({
         className: '',
-        html: `<div class="custom-marker" style="width:28px;height:28px;background:${style.bg};" title="${escapeHtml(node.name)}">
+        html: `<div class="custom-marker ${shapeClass}" style="width:28px;height:28px;background:${style.bg};" title="${escapeHtml(node.name)}">
                  <i class="fa-solid ${style.icon}"></i>
                </div>`,
         iconSize: [28, 28],
@@ -1309,13 +1366,14 @@ function openEditNodeModal(id) {
             <div>
                 <label class="text-slate-300 block mb-1 font-semibold">Jenis Titik</label>
                 <select id="edit-node-type" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-2.5 py-1.5 text-white focus:outline-none focus:border-blue-500">
-                    <option value="Gedung" ${node.type === 'Gedung' ? 'selected' : ''}>Gedung / Titik Power</option>
+                    <option value="Gedung" ${node.type === 'Gedung' ? 'selected' : ''}>Gedung / Pelanggan</option>
+                    <option value="OLT" ${node.type === 'OLT' ? 'selected' : ''}>OLT / Sentral</option>
                     <option value="Closure" ${node.type === 'Closure' ? 'selected' : ''}>Joint Closure (JB)</option>
                     <option value="Handhole" ${node.type === 'Handhole' ? 'selected' : ''}>Handhole (HH) / Manhole</option>
-                    <option value="ODP" ${node.type === 'ODP' ? 'selected' : ''}>ODP</option>
-                    <option value="ODC" ${node.type === 'ODC' ? 'selected' : ''}>ODC</option>
+                    <option value="ODC" ${node.type === 'ODC' ? 'selected' : ''}>ODC (Cabinet)</option>
+                    <option value="ODP" ${node.type === 'ODP' ? 'selected' : ''}>ODP (Distribusi)</option>
+                    <option value="Tiang" ${node.type === 'Tiang' ? 'selected' : ''}>Tiang Tumpu</option>
                     <option value="POP" ${node.type === 'POP' ? 'selected' : ''}>POP / Server</option>
-                    <option value="Tiang" ${node.type === 'Tiang' ? 'selected' : ''}>Tiang tumpu</option>
                 </select>
             </div>
             <div>
@@ -1730,7 +1788,7 @@ function updateUI() {
             if (filteredNodes.length === 0) {
                 nodeContainer.innerHTML = `<p class="text-slate-500 text-[11px] italic">Tidak ada titik yang sesuai pencarian / filter.</p>`;
             } else {
-                const typeOrder = ['Gedung', 'Handhole', 'Closure', 'ODP', 'ODC', 'POP', 'Tiang'];
+                const typeOrder = ['Gedung', 'OLT', 'Closure', 'Handhole', 'ODC', 'ODP', 'Tiang', 'POP'];
                 const allTypes = Array.from(new Set([...typeOrder, ...filteredNodes.map(n => n.type)]));
                 const groupCards = [];
 
@@ -2378,6 +2436,12 @@ window.setNetworkData = setNetworkData;
     window.openTutorialModal = openTutorialModal;
     window.closeTutorialModal = closeTutorialModal;
     window.switchTutorialTab = switchTutorialTab;
+    window.selectNodeType = selectNodeType;
+    window.updateQuickNodeTypeUI = updateQuickNodeTypeUI;
+
+    if (typeof updateQuickNodeTypeUI === 'function') {
+        updateQuickNodeTypeUI();
+    }
 
     if (typeof applyCableFlowState === 'function') {
         applyCableFlowState();

@@ -499,6 +499,7 @@ function applyRoleUI() {
 
     // 3. Mode Selector Buttons & Kontrol Editing
     const modeBtnContainer = document.getElementById('mode-selector-grid');
+    const quickNodePalette = document.getElementById('quick-node-palette');
     const readOnlyNotice = document.getElementById('mode-readonly-notice');
     const resetBtn = document.getElementById('btn-reset-database');
     const tabBtnInput = document.getElementById('tab-btn-input');
@@ -515,12 +516,14 @@ function applyRoleUI() {
     // Mode Interaksi Peta & Input Titik (SUPER ADMIN & ADMIN BIASA)
     if (canWrite) {
         if (modeBtnContainer) modeBtnContainer.classList.remove('hidden');
+        if (quickNodePalette) quickNodePalette.classList.remove('hidden');
         if (readOnlyNotice) readOnlyNotice.classList.add('hidden');
         if (tabBtnInput) tabBtnInput.classList.remove('hidden');
     } else {
         // Mode Read-Only untuk USER dan GUEST
         if (typeof setMode === 'function') setMode('pan');
         if (modeBtnContainer) modeBtnContainer.classList.add('hidden');
+        if (quickNodePalette) quickNodePalette.classList.add('hidden');
         if (readOnlyNotice) readOnlyNotice.classList.remove('hidden');
         if (tabBtnInput) tabBtnInput.classList.add('hidden');
         if (typeof switchTab === 'function') switchTab('tab-list');

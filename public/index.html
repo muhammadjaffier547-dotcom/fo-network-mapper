@@ -72,6 +72,42 @@
                 </button>
             </div>
 
+            <!-- Quick Palette Jenis Titik (Gedung, OLT, Closure, HH, ODC, ODP, Tiang, POP) -->
+            <div id="quick-node-palette" class="mt-2 p-2 bg-slate-900/95 rounded-xl border border-slate-700/80 space-y-1.5 shadow-lg">
+                <div class="flex items-center justify-between text-[11px] font-semibold text-slate-300">
+                    <span class="flex items-center gap-1 text-[10px] text-slate-400 uppercase tracking-wider font-bold">
+                        <i class="fa-solid fa-shapes text-sky-400"></i> Pilih Cepat Titik:
+                    </span>
+                    <span id="active-selected-type-badge" class="px-2 py-0.5 rounded text-[10px] font-bold text-white shadow" style="background:#0284c7">Gedung</span>
+                </div>
+                <div class="grid grid-cols-4 gap-1">
+                    <button type="button" onclick="selectNodeType('Gedung')" data-type="Gedung" title="Gedung / Kantor / Site" class="quick-node-btn py-1.5 px-1 rounded-lg text-[10px] font-bold text-white shadow flex flex-col items-center justify-center gap-0.5 border border-white/40 transition" style="background:#0284c7">
+                        <i class="fa-solid fa-building text-xs"></i> Gedung
+                    </button>
+                    <button type="button" onclick="selectNodeType('OLT')" data-type="OLT" title="OLT / Sentral / Headend" class="quick-node-btn py-1.5 px-1 rounded-lg text-[10px] font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 flex flex-col items-center justify-center gap-0.5 transition">
+                        <i class="fa-solid fa-server text-pink-400 text-xs"></i> OLT
+                    </button>
+                    <button type="button" onclick="selectNodeType('Closure')" data-type="Closure" title="Joint Closure (JB / JC)" class="quick-node-btn py-1.5 px-1 rounded-lg text-[10px] font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 flex flex-col items-center justify-center gap-0.5 transition">
+                        <i class="fa-solid fa-box-archive text-red-400 text-xs"></i> Closure
+                    </button>
+                    <button type="button" onclick="selectNodeType('Handhole')" data-type="Handhole" title="Handhole (HH) / Manhole" class="quick-node-btn py-1.5 px-1 rounded-lg text-[10px] font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 flex flex-col items-center justify-center gap-0.5 transition">
+                        <i class="fa-solid fa-cube text-purple-400 text-xs"></i> HH
+                    </button>
+                    <button type="button" onclick="selectNodeType('ODC')" data-type="ODC" title="Optical Distribution Cabinet" class="quick-node-btn py-1.5 px-1 rounded-lg text-[10px] font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 flex flex-col items-center justify-center gap-0.5 transition">
+                        <i class="fa-solid fa-warehouse text-orange-400 text-xs"></i> ODC
+                    </button>
+                    <button type="button" onclick="selectNodeType('ODP')" data-type="ODP" title="Optical Distribution Point" class="quick-node-btn py-1.5 px-1 rounded-lg text-[10px] font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 flex flex-col items-center justify-center gap-0.5 transition">
+                        <i class="fa-solid fa-network-wired text-cyan-400 text-xs"></i> ODP
+                    </button>
+                    <button type="button" onclick="selectNodeType('Tiang')" data-type="Tiang" title="Tiang Tumpu FO" class="quick-node-btn py-1.5 px-1 rounded-lg text-[10px] font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 flex flex-col items-center justify-center gap-0.5 transition">
+                        <i class="fa-solid fa-up-long text-slate-400 text-xs"></i> Tiang
+                    </button>
+                    <button type="button" onclick="selectNodeType('POP')" data-type="POP" title="Point of Presence / Server" class="quick-node-btn py-1.5 px-1 rounded-lg text-[10px] font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 flex flex-col items-center justify-center gap-0.5 transition">
+                        <i class="fa-solid fa-building-shield text-emerald-400 text-xs"></i> POP
+                    </button>
+                </div>
+            </div>
+
             <!-- Notice Read-Only untuk USER / Tamu -->
             <div id="mode-readonly-notice" class="hidden p-2 rounded-lg bg-blue-950/40 border border-blue-500/30 text-xs text-blue-200 flex items-center justify-between">
                 <div class="flex items-center gap-2">
@@ -133,14 +169,15 @@
                     <div class="grid grid-cols-2 gap-2">
                         <div>
                             <label class="text-xs text-slate-300 block mb-1">Jenis Titik</label>
-                            <select id="node-type" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500">
-                                <option value="Gedung">Gedung / Titik Power</option>
+                            <select id="node-type" onchange="selectNodeType(this.value)" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500">
+                                <option value="Gedung">Gedung / Kantor</option>
+                                <option value="OLT">OLT / Sentral</option>
                                 <option value="Closure">Joint Closure (JB)</option>
                                 <option value="Handhole">Handhole (HH) / Manhole</option>
-                                <option value="ODP">ODP</option>
-                                <option value="ODC">ODC</option>
+                                <option value="ODC">ODC (Cabinet)</option>
+                                <option value="ODP">ODP (Distribusi)</option>
+                                <option value="Tiang">Tiang Tumpu</option>
                                 <option value="POP">POP / Server</option>
-                                <option value="Tiang">Tiang tumpu</option>
                             </select>
                         </div>
                         <div>

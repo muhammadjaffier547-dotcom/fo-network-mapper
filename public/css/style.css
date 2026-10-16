@@ -259,4 +259,55 @@ body.cable-flow-disabled .cable-flow-stream {
     display: none !important;
 }
 
+/* Bentuk Ikon & Marker Unik Perangkat FO */
+.marker-gedung {
+    border-radius: 7px !important;
+    box-shadow: 0 3px 8px rgba(2, 132, 199, 0.6) !important;
+}
+
+.marker-olt {
+    border-radius: 5px !important;
+    transform: rotate(45deg);
+    box-shadow: 0 0 12px rgba(236, 72, 153, 0.9) !important;
+    border: 2px solid #ffffff !important;
+}
+.marker-olt i {
+    transform: rotate(-45deg);
+}
+.marker-olt:hover {
+    transform: rotate(45deg) scale(1.2) !important;
+}
+
+.marker-closure {
+    border-radius: 50% !important;
+    box-shadow: 0 3px 8px rgba(239, 68, 68, 0.6) !important;
+}
+
+.marker-handhole {
+    border-radius: 3px !important;
+    box-shadow: 0 3px 8px rgba(139, 92, 246, 0.6) !important;
+    border: 2px solid #e9d5ff !important;
+}
+
+.marker-odc {
+    border-radius: 6px !important;
+    box-shadow: 0 3px 8px rgba(249, 115, 22, 0.6) !important;
+}
+
+.marker-odp {
+    border-radius: 50% !important;
+    box-shadow: 0 3px 8px rgba(6, 182, 212, 0.6) !important;
+}
+
+.marker-tiang {
+    border-radius: 50% !important;
+    box-shadow: 0 2px 6px rgba(100, 116, 139, 0.5) !important;
+    border: 2px solid #cbd5e1 !important;
+}
+
+.marker-pop {
+    border-radius: 7px 7px 12px 12px !important;
+    box-shadow: 0 3px 8px rgba(16, 185, 129, 0.6) !important;
+}
+
 
